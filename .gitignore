@@ -1,0 +1,8 @@
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake-bitcoinr/CMakeFiles/
+cmake-bitcoinr/Makefile
+cmake-bitcoinr/bitcoinr
+cmake-bitcoinr/cmake_install.cmake
+cmake_install.cmake
