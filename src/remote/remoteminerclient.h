@@ -37,7 +37,7 @@ public:
 	RemoteMinerClient();
 	virtual ~RemoteMinerClient();
 
-	void Run(const std::string &server, const std::string &port, const std::string &password, const std::string &address);
+	virtual void Run(const std::string &server, const std::string &port, const std::string &password, const std::string &address);
 
 	const bool Connect(const std::string &server, const std::string &port);
 	const bool Disconnect();
@@ -48,7 +48,7 @@ public:
 	const bool ProtocolError() const;
 	const bool ReceiveMessage(RemoteMinerMessage &message);
 
-private:
+protected:
 #ifdef _WIN32
 	static bool m_wsastartup;
 #endif
@@ -69,6 +69,8 @@ private:
 
 	const bool FindGenerationAddressInBlock(const uint160 address, json_spirit::Object &obj, double &amount) const;
 	const std::string ReverseAddressHex(const uint160 address) const;
+
+	void SaveBlock(json_spirit::Object &block, const std::string &filename);
 
 	inline void SHA256Transform(void* pstate, void* pinput, const void* pinit)
 	{

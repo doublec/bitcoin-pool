@@ -16,26 +16,29 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 **/
 
-#ifndef _remote_bitcoin_headers_
-#define _remote_bitcoin_headers_
+#ifndef _remote_cuda_shared_
+#define _remote_cuda_shared_
 
-#ifdef _WIN32
-#include <winsock2.h>
-#include <windows.h>
-#endif
-#include <boost/date_time/posix_time/posix_time_types.hpp>
-#include <boost/date_time/gregorian/gregorian_types.hpp>
-#include <cassert>
-#include <map>
-#include <vector>
-#include <string>
-#include <openssl/sha.h>
-#include <openssl/ripemd.h>
-#include "../serialize.h"
-#include "../uint256.h"
-#include "../util.h"
-#include "../bignum.h"
-#include "../base58.h"
-#include "../strlcpy.h"
+#ifdef _BITCOIN_MINER_CUDA_
 
-#endif	// _remote_bitcon_headers_
+typedef struct
+{
+	unsigned int m_AH[8];
+	unsigned int m_merkle;
+	unsigned int m_ntime;
+	unsigned int m_nbits;
+	unsigned int m_nonce;
+}remote_cuda_in;
+
+typedef struct
+{
+	unsigned int m_bestnonce;
+	unsigned int m_bestAH[8];
+	unsigned int m_nonce;
+}remote_cuda_out;
+
+void remote_cuda_process_helper(remote_cuda_in *in, remote_cuda_out *out, unsigned char *metahash, const unsigned int loops, const unsigned int bits, const int grid, const int threads);
+
+#endif	// _BITCOIN_MINER_CUDA_
+
+#endif	// _remote_cuda_shared_

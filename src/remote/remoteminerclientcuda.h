@@ -16,26 +16,19 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 **/
 
-#ifndef _remote_bitcoin_headers_
-#define _remote_bitcoin_headers_
+#ifndef _remote_miner_client_cuda_
+#define _remote_miner_client_cuda_
 
-#ifdef _WIN32
-#include <winsock2.h>
-#include <windows.h>
-#endif
-#include <boost/date_time/posix_time/posix_time_types.hpp>
-#include <boost/date_time/gregorian/gregorian_types.hpp>
-#include <cassert>
-#include <map>
-#include <vector>
-#include <string>
-#include <openssl/sha.h>
-#include <openssl/ripemd.h>
-#include "../serialize.h"
-#include "../uint256.h"
-#include "../util.h"
-#include "../bignum.h"
-#include "../base58.h"
-#include "../strlcpy.h"
+#include "remoteminerclient.h"
 
-#endif	// _remote_bitcon_headers_
+class RemoteMinerClientCUDA:public RemoteMinerClient
+{
+public:
+	RemoteMinerClientCUDA();
+	virtual ~RemoteMinerClientCUDA();
+
+	virtual void Run(const std::string &server, const std::string &port, const std::string &password, const std::string &address);
+
+};
+
+#endif	// _remote_miner_client_cuda_
