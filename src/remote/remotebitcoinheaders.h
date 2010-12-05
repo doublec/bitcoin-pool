@@ -30,6 +30,10 @@
 #include <vector>
 #include <openssl/sha.h>
 #include <openssl/ripemd.h>
-#include "../headers.h"
+#include "../uint256.h"
+#include "../util.h"
+#include "../serialize.h"
+#include "../bignum.h"
+#include "../base58.h"
 
 #endif	// _remote_bitcon_headers_
