@@ -22,7 +22,7 @@
 #include "../json/json_spirit.h"
 #include <vector>
 
-const int REMOTEMINER_PROTOCOL_VERSION=1;
+const int REMOTEMINER_PROTOCOL_VERSION=2;
 
 class RemoteMinerMessage
 {
@@ -35,6 +35,10 @@ public:
 
 	const std::vector<char> GetWireData() const;
 	void PushWireData(std::vector<char> &buffer) const;
+
+	static bool MessageReady(const std::vector<char> &buffer);
+	static bool ReceiveMessage(std::vector<char> &buffer, RemoteMinerMessage &message);
+	static bool ProtocolError(const std::vector<char> &buffer);
 
 	enum RemoteMinerMessageType
 	{
@@ -50,6 +54,11 @@ public:
 		MESSAGE_TYPE_CLIENTFOUNDHASH=9,
 		MESSAGE_TYPE_SERVERSTATUS=10,
 		MESSAGE_TYPE_MAX
+	};
+
+	enum Flag
+	{
+		FLAG_4BYTESIZE=1,
 	};
 
 private:

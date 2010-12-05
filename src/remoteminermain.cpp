@@ -18,8 +18,37 @@
 
 #include "remote/remotebitcoinheaders.h"
 #include "remote/remoteminerclient.h"
+#include "remote/remoteminerclientcuda.h"
 
 bool fTestNet=false;
+std::map<std::string,std::string> mapArgs;
+std::map<std::string,std::vector<std::string> > mapMultiArgs;
+
+void ParseParameters(int argc, char* argv[])
+{
+    mapArgs.clear();
+    mapMultiArgs.clear();
+    for (int i = 1; i < argc; i++)
+    {
+        char psz[10000];
+        strlcpy(psz, argv[i], sizeof(psz));
+        char* pszValue = (char*)"";
+        if (strchr(psz, '='))
+        {
+            pszValue = strchr(psz, '=');
+            *pszValue++ = '\0';
+        }
+        #ifdef __WXMSW__
+        _strlwr(psz);
+        if (psz[0] == '/')
+            psz[0] = '-';
+        #endif
+        if (psz[0] != '-')
+            break;
+        mapArgs[psz] = pszValue;
+        mapMultiArgs[psz].push_back(pszValue);
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -28,43 +57,42 @@ int main(int argc, char *argv[])
 	std::string password("");
 	std::string address("");
 
-	for(int i=1; i<argc;)
+	ParseParameters(argc,argv);
+
+	if(mapArgs.count("-server")>0)
 	{
-		if(argv[i])
+		server=mapArgs["-server"];
+	}
+	if(mapArgs.count("-port")>0)
+	{
+		port=mapArgs["-port"];
+	}
+	if(mapArgs.count("-password")>0)
+	{
+		password=mapArgs["-password"];
+	}
+	if(mapArgs.count("-address")>0)
+	{
+		address=mapArgs["-address"];
+		uint160 h160;
+		if(AddressToHash160(address.c_str(),h160)==false)
 		{
-			std::string arg(argv[i]);
-			i++;
-			if(arg=="-server" && i<argc)
-			{
-				server=std::string(argv[i]);
-			}
-			if(arg=="-port" && i<argc)
-			{
-				port=std::string(argv[i]);
-			}
-			if(arg=="-password" && i<argc)
-			{
-				password=std::string(argv[i]);
-			}
-			if(arg=="-address" && i<argc)
-			{
-				address=std::string(argv[i]);
-				uint160 h160;
-				if(AddressToHash160(address.c_str(),h160)==false)
-				{
-					std::cout << "Address is invalid" << std::endl;
-					address="";
-				}
-			}
-		}
-		else
-		{
-			i++;
+			std::cout << "Address is invalid" << std::endl;
+			address="";
 		}
 	}
 
+
+#if  defined(_BITCOIN_MINER_CUDA_)
+	RemoteMinerClientCUDA client;
+#elif defined(_BITCOIN_MINER_OPENCL_)
+	RemoteMinerClientOpenCL client;
+#else
 	RemoteMinerClient client;
+#endif
+
 	client.Run(server,port,password,address);
+
 
 	return 0;
 }

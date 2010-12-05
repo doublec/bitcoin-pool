@@ -22,6 +22,7 @@
 
 #include <iostream>
 #include <string>
+#include <fstream>
 
 #ifdef _WIN32
 	#include <winsock2.h>
@@ -281,16 +282,20 @@ void RemoteMinerClient::HandleMessage(const RemoteMinerMessage &message)
 			}
 
 			tval=json_spirit::find_value(message.GetValue().get_obj(),"fullblock");
-			if(m_address160!=0 && tval.type()==json_spirit::obj_type)
+			if(tval.type()==json_spirit::obj_type)
 			{
-				double amount=0;
-				if(FindGenerationAddressInBlock(m_address160,tval.get_obj(),amount))
+				SaveBlock(tval.get_obj(),"block.txt");
+				if(m_address160!=0)
 				{
-					std::cout << "Address " << Hash160ToAddress(m_address160) <<  " will receive " << amount << " BTC if this block is solved" << std::endl;
-				}
-				else
-				{
-					std::cout << "Address " << Hash160ToAddress(m_address160) << " not found in block being solved" << std::endl;
+					double amount=0;
+					if(FindGenerationAddressInBlock(m_address160,tval.get_obj(),amount))
+					{
+						std::cout << "Address " << Hash160ToAddress(m_address160) <<  " will receive " << amount << " BTC if this block is solved" << std::endl;
+					}
+					else
+					{
+						std::cout << "Address " << Hash160ToAddress(m_address160) << " not found in block being solved" << std::endl;
+					}
 				}
 			}
 
@@ -368,50 +373,17 @@ void RemoteMinerClient::HandleMessage(const RemoteMinerMessage &message)
 
 const bool RemoteMinerClient::MessageReady() const
 {
-	if(m_receivebuffer.size()>3 && m_receivebuffer[0]==REMOTEMINER_PROTOCOL_VERSION)
-	{
-		unsigned short messagesize=(m_receivebuffer[1] << 8) & 0xff00;
-		messagesize|=(m_receivebuffer[2]) & 0xff;
-
-		if(m_receivebuffer.size()>=3+messagesize)
-		{
-			return true;
-		}
-	}
-
-	return false;
+	return RemoteMinerMessage::MessageReady(m_receivebuffer);
 }
 
 const bool RemoteMinerClient::ProtocolError() const
 {
-	if(m_receivebuffer.size()>0 && m_receivebuffer[0]!=REMOTEMINER_PROTOCOL_VERSION)
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
+	return RemoteMinerMessage::ProtocolError(m_receivebuffer);
 }
 
 const bool RemoteMinerClient::ReceiveMessage(RemoteMinerMessage &message)
 {
-	if(MessageReady())
-	{
-		unsigned short messagesize=(m_receivebuffer[1] << 8) & 0xff00;
-		messagesize|=(m_receivebuffer[2]) & 0xff;
-
-		std::string objstr(m_receivebuffer.begin()+3,m_receivebuffer.begin()+3+messagesize);
-		json_spirit::Value value;
-		bool jsonread=json_spirit::read(objstr,value);
-		if(jsonread)
-		{
-			message=RemoteMinerMessage(value);
-		}
-		m_receivebuffer.erase(m_receivebuffer.begin(),m_receivebuffer.begin()+3+messagesize);
-		return jsonread;
-	}
-	return false;
+	return RemoteMinerMessage::ReceiveMessage(m_receivebuffer,message);
 }
 
 const std::string RemoteMinerClient::ReverseAddressHex(const uint160 address) const
@@ -457,6 +429,7 @@ void RemoteMinerClient::Run(const std::string &server, const std::string &port, 
 		if(IsConnected()==false)
 		{
 			std::cout << "Attempting to connect to " << server << ":" << port << std::endl;
+			Sleep(1000);
 			if(Connect(server,port))
 			{
 				m_gotserverhello=false;
@@ -469,10 +442,6 @@ void RemoteMinerClient::Run(const std::string &server, const std::string &port, 
 				besthashnonce=0;
 				std::cout << "Connected to " << server << ":" << port << std::endl;
 				SendClientHello(password,address);
-			}
-			else
-			{
-				Sleep(1000);
 			}
 		}
 		else
@@ -591,12 +560,18 @@ void RemoteMinerClient::Run(const std::string &server, const std::string &port, 
 					besthash=~(uint256(0));
 					besthashnonce=0;
 				}
-
 			}
 
 		}
 	}
 
+}
+
+void RemoteMinerClient::SaveBlock(json_spirit::Object &block, const std::string &filename)
+{
+	std::ofstream file(filename.c_str(),std::ios::out|std::ios::trunc);
+	json_spirit::write_formatted(block,file);
+	file.close();
 }
 
 void RemoteMinerClient::SendClientHello(const std::string &password, const std::string &address)
@@ -628,13 +603,13 @@ void RemoteMinerClient::SendFoundHash(const int64 blockid, const std::vector<uns
 	obj.push_back(json_spirit::Pair("type",static_cast<int>(RemoteMinerMessage::MESSAGE_TYPE_CLIENTFOUNDHASH)));
 	if(blockid!=0)
 	{
-		obj.push_back(json_spirit::Pair("blockid",static_cast<int64>(blockid)));
+		obj.push_back(json_spirit::Pair("blockid",static_cast<boost::int64_t>(blockid)));
 	}
 	else
 	{
 		obj.push_back(json_spirit::Pair("block",blockstr));
 	}
-	obj.push_back(json_spirit::Pair("nonce",static_cast<int64>(nonce)));
+	obj.push_back(json_spirit::Pair("nonce",static_cast<boost::int64_t>(nonce)));
 	
 	SendMessage(RemoteMinerMessage(obj));
 }
@@ -655,16 +630,16 @@ void RemoteMinerClient::SendMetaHash(const int64 blockid, const std::vector<unsi
 	obj.push_back(json_spirit::Pair("type",static_cast<int>(RemoteMinerMessage::MESSAGE_TYPE_CLIENTMETAHASH)));
 	if(blockid!=0)
 	{
-		obj.push_back(json_spirit::Pair("blockid",static_cast<int64>(blockid)));
+		obj.push_back(json_spirit::Pair("blockid",static_cast<boost::int64_t>(blockid)));
 	}
 	else
 	{
 		obj.push_back(json_spirit::Pair("block",blockstr));
 	}
-	obj.push_back(json_spirit::Pair("nonce",static_cast<int64>(startnonce)));
+	obj.push_back(json_spirit::Pair("nonce",static_cast<boost::int64_t>(startnonce)));
 	obj.push_back(json_spirit::Pair("digest",digeststr));
 	obj.push_back(json_spirit::Pair("besthash",besthash.ToString()));
-	obj.push_back(json_spirit::Pair("besthashnonce",static_cast<int64>(besthashnonce)));
+	obj.push_back(json_spirit::Pair("besthashnonce",static_cast<boost::int64_t>(besthashnonce)));
 
 	SendMessage(RemoteMinerMessage(obj));
 }

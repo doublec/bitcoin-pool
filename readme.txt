@@ -23,7 +23,21 @@ Remote miner server arguments
 	
 -remotepassword=xxxxx
 	Set a password to access the server.  The default is a blank password.
-
+	
+-distributiontype=connected|contributed
+	Sets method used to distribute bitcoins.  "connected" will distribute coins
+	only to those clients that were connected when the block being solved was
+	created.  The distribution is based on each connected clients calculated hash 
+	rate against the total hash rate at the time a new block is created. 
+	"contributed" will accrue all hashes sent to the server for a given address 
+	since the last generated block.  A client may freely disconnect and reconnect 
+	and will continue accumulating hashes to whatever address the client specified.
+	The distribution of coins with this method is based on the hashes accrued by 
+	each address against the total hashes accured by everyone.  The server will
+	save the values when it shuts down and load them back up on startup.
+	
+-resethashescontributed
+	Resets the count of hashes contributed from each address.
 
 
 *********************
@@ -31,17 +45,17 @@ Remote miner server arguments
 *********************
 Remote miner client arguments
 
--server x.x.x.x
+-server=x.x.x.x
 	The address of the server to connect to.  The default is 127.0.0.1.
 	
--port xxxxx
+-port=xxxxx
 	The port of the server.  The default is 8335.
 	
--password xxxxx
+-password=xxxxx
 	The password to use when connecting to the server.  The default is a blank 
 	password.
 	
--address xxxxxxx
+-address=xxxxxxx
 	The bitcoin address you want generated coins sent to.  The default is blank.  
 	A blank address will make the client's share of generated coins be kept by 
 	the server.
@@ -72,10 +86,10 @@ CUDA miner arguments
 	tuning hash rate.
 
 -port=X
-	Specifies the port that bitcoin will listen on.
+	Specifies the port that bitcoin will listen on.  (When run in GUI or daemon)
 
 -rpcport=X
-	Specifies the port that the rpc server will listen on.
+	Specifies the port that the rpc server will listen on.  (When run in GUI or daemon)
 
 
 
@@ -109,7 +123,7 @@ OpenCL miner arguments
 	tuning hash rate.
 
 -port=X
-	Specifies the port that bitcoin will listen on.
+	Specifies the port that bitcoin will listen on.  (When run in GUI or daemon)
 
 -rpcport=X
-	Specifies the port that the rpc server will listen on.
+	Specifies the port that the rpc server will listen on.  (When run in GUI or daemon)

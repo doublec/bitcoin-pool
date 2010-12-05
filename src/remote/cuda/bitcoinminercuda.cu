@@ -25,7 +25,7 @@
 #define R(x) (work[x] = (rotateright(work[x-2],17)^rotateright(work[x-2],19)^((work[x-2]&0xffffffff)>>10)) + work[x -  7] + (rotateright(work[x-15],7)^rotateright(work[x-15],18)^((work[x-15]&0xffffffff)>>3)) + work[x - 16])
 #define sharound(a,b,c,d,e,f,g,h,x,K) {t1=h+(rotateright(e,6)^rotateright(e,11)^rotateright(e,25))+(g^(e&(f^g)))+K+x; t2=(rotateright(a,2)^rotateright(a,13)^rotateright(a,22))+((a&b)|(c&(a|b))); d+=t1; h=t1+t2;}
 
-__global__ void cuda_process(cuda_in *in, cuda_out *out, const unsigned int loops, const unsigned int bits)
+__global__ void remote_cuda_process(remote_cuda_in *in, remote_cuda_out *out, unsigned char *metahash, const unsigned int loops, const unsigned int bits)
 {
 
     unsigned int work[64];
@@ -34,7 +34,7 @@ __global__ void cuda_process(cuda_in *in, cuda_out *out, const unsigned int loop
 	const unsigned int nonce=in->m_nonce + (myid << bits);
 	unsigned int t1,t2;
 	unsigned int bestnonce=0;
-	unsigned int bestg=~0;
+	unsigned int bestAH[8]={~0,~0,~0,~0,~0,~0,~0,~0};
     
     #pragma unroll 1
 	for(unsigned int it=0; it<loops; it++)
@@ -52,7 +52,8 @@ __global__ void cuda_process(cuda_in *in, cuda_out *out, const unsigned int loop
 		work[0]=in->m_merkle;
 		work[1]=in->m_ntime;
 		work[2]=in->m_nbits;
-		work[3]=byteswap(nonce+it);
+		//work[3]=byteswap(nonce+it);
+		work[3]=nonce+it;
 		work[4]=0x80000000;
 		work[5]=0x00000000;
 		work[6]=0x00000000;
@@ -221,30 +222,58 @@ __global__ void cuda_process(cuda_in *in, cuda_out *out, const unsigned int loop
 		sharound(F,G,H,A,B,C,D,E,R(59),0x8CC70208);
 		sharound(E,F,G,H,A,B,C,D,R(60),0x90BEFFFA);
 		sharound(D,E,F,G,H,A,B,C,R(61),0xA4506CEB);
-		//we don't need to do these last 2 rounds as they update F, B, E and A, but we only care about G and H
-		//sharound(C,D,E,F,G,H,A,B,R(62),0xBEF9A3F7);
-		//sharound(B,C,D,E,F,G,H,A,R(63),0xC67178F2);
+		sharound(C,D,E,F,G,H,A,B,R(62),0xBEF9A3F7);
+		sharound(B,C,D,E,F,G,H,A,R(63),0xC67178F2);
 
 		G+=0x1f83d9ab;
 		G=byteswap(G);
 		H+=0x5be0cd19;
+		H=byteswap(H);
+		
+		A+=0x6A09E667;
+		
+		metahash[(myid*loops)+it]=((unsigned char *)&A)[0];
 
-		if((H==0) && (G<=bestg))
+		if((H<out[myid].m_bestAH[7]) || (H==out[myid].m_bestAH[7] && G<=out[myid].m_bestAH[6]))
 		{
+			B+=0xBB67AE85;
+			C+=0x3C6EF372;
+			D+=0xA54FF53A;
+			E+=0x510E527F;
+			F+=0x9B05688C;
+			
+			A=byteswap(A);
+			B=byteswap(B);
+			C=byteswap(C);
+			D=byteswap(D);
+			E=byteswap(E);
+			F=byteswap(F);
+			
+			bestAH[0]=A;
+			bestAH[1]=B;
+			bestAH[2]=C;
+			bestAH[3]=D;
+			bestAH[4]=E;
+			bestAH[5]=F;
+			bestAH[6]=G;
+			bestAH[7]=H;
+		
 			bestnonce=nonce+it;
-			bestg=G;
 		}
 
     }
-    
+    out[myid].m_nonce=nonce;
     out[myid].m_bestnonce=bestnonce;
-    out[myid].m_bestg=bestg;
+    for(int i=0; i<8; i++)
+    {
+		out[myid].m_bestAH[i]=bestAH[i];
+    }
 
 }
 
-void cuda_process_helper(cuda_in *in, cuda_out *out, const int unsigned loops, const unsigned int bits, const int grid, const int threads)
+void remote_cuda_process_helper(remote_cuda_in *in, remote_cuda_out *out, unsigned char *metahash, const int unsigned loops, const unsigned int bits, const int grid, const int threads)
 {
-	cuda_process<<<grid,threads>>>(in,out,loops,bits-1);
+	remote_cuda_process<<<grid,threads>>>(in,out,metahash,loops,bits-1);
 }
 
 #endif	// _BITCOIN_MINER_CUDA_

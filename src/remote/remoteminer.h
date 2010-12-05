@@ -23,10 +23,11 @@
 #include "remoteminermessage.h"
 #include "../cryptopp/sha.h"
 #include <vector>
+#include <map>
 
 extern const int BITCOINMINERREMOTE_THREADINDEX;
 extern const int BITCOINMINERREMOTE_HASHESPERMETA;
-#define BITCOINMINERREMOTE_SERVERVERSIONSTR "1.1.0"
+#define BITCOINMINERREMOTE_SERVERVERSIONSTR "1.2.1"
 
 void ThreadBitcoinMinerRemote(void* parg);
 void BitcoinMinerRemote();
@@ -63,6 +64,7 @@ public:
 
 	const time_t GetLastVerifiedMetaHash() const					{ return m_lastverifiedmetahash; }
 	void SetLastVerifiedMetaHash(const time_t t)					{ m_lastverifiedmetahash=t; }
+	const int64 GetVerifiedMetaHashCount() const					{ return m_verifiedmetahashcount; }
 
 	const std::vector<char>::size_type ReceiveBufferSize() const	{ return m_receivebuffer.size(); }
 	const std::vector<char>::size_type SendBufferSize() const		{ return m_sendbuffer.size(); }
@@ -71,6 +73,8 @@ public:
 	const bool SocketSend();
 
 	const std::string GetAddress(const bool withport=true) const;
+
+	const uint160 GetRecipientAddress() const						{ return m_recipientaddress; }
 
 	int64 &NextBlockID()											{ return m_nextblockid; }
 
@@ -139,6 +143,43 @@ private:
 	uint160 m_recipientaddress;
 
 	int64 m_nextblockid;
+	int64 m_verifiedmetahashcount;
+
+};
+
+class MetaHashVerifier
+{
+public:
+	MetaHashVerifier();
+	~MetaHashVerifier();
+
+	void Start(RemoteClientConnection *client, const RemoteClientConnection::sentwork &work);
+	void Step(const int hashes=100000);
+
+	RemoteClientConnection *GetClient()				{ return m_client; }
+	void ClearClient()								{ m_client=0; }
+
+	const bool Done() const							{ return m_done; }
+	const bool Verified() const						{ return m_verified; }
+
+private:
+
+	bool m_done;
+	bool m_verified;
+	uint256 m_tempbuff[3];
+	uint256 m_hashbuff[3];
+	uint256 *m_temphash;
+	uint256 *m_hash;
+	unsigned char m_midbuff[256];
+	unsigned char m_blockbuff[256];
+	unsigned char *m_midbuffptr;
+	unsigned char *m_blockbuffptr;
+	unsigned int *m_nonce;
+	unsigned int m_startnonce;
+	std::vector<unsigned char> m_digest;
+	std::vector<unsigned char> m_metahash;
+	std::vector<unsigned char>::size_type m_metahashpos;
+	RemoteClientConnection *m_client;
 
 };
 
@@ -166,19 +207,31 @@ public:
 	
 	RemoteClientConnection *GetOldestNonVerifiedMetaHashClient();
 
-	int64 &GeneratedCount()									{ return m_generatedcount; }
+	int64 &GeneratedCount()													{ return m_generatedcount; }
+
+	void LoadContributedHashes();
+	void SaveContributedHashes();
+
+	void AddContributedHashes(const uint160 address, const int64 hashes)	{ m_currenthashescontributed[address]+=hashes; }
+	void ClearCurrentHashesContributed()									{ m_previoushashescontributed=m_currenthashescontributed; m_currenthashescontributed.clear(); }
 
 private:
 	void BlockToJson(const CBlock *block, json_spirit::Object &obj);
 	void ReadBanned(const std::string &filename);
+
+	void AddDistributionFromConnected(CBlock *pblock, CBlockIndex *pindexPrev, int64 nFees);
+	void AddDistributionFromContributed(CBlock *pblock, CBlockIndex *pindexPrev, int64 nFees);
 
 	CBigNum m_bnExtraNonce;
 
 #ifdef _WIN32
 	static bool m_wsastartup;
 #endif
+	std::string m_distributiontype;
 	std::vector<SOCKET> m_listensockets;
 	std::vector<RemoteClientConnection *> m_clients;
+	std::map<uint160,uint256> m_previoushashescontributed;	// number of hashes each address contributed to the previous block solve
+	std::map<uint160,uint256> m_currenthashescontributed;		// number of hashes each address contributed since last block solve
 	std::set<std::string> m_banned;
 	time_t m_startuptime;
 	int64 m_generatedcount;

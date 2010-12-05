@@ -194,7 +194,7 @@ void OpenCLRunner::FindBestConfiguration()
 	cl_int rval=0;
 	cl_int err=CL_SUCCESS;
 	cl_uint loops=GetStepIterations();
-	cl_uint bitshift=GetStepBitShift();
+	cl_uint bitshift=GetStepBitShift()-1;
 	int mult=2;
 	if(bitshift<6)
 	{
