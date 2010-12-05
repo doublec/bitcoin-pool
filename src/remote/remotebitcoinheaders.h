@@ -31,11 +31,6 @@
 #include <string>
 #include <openssl/sha.h>
 #include <openssl/ripemd.h>
-#include "../serialize.h"
-#include "../uint256.h"
-#include "../util.h"
-#include "../bignum.h"
-#include "../base58.h"
-#include "../strlcpy.h"
+#include "../headers.h"
 
 #endif	// _remote_bitcon_headers_
