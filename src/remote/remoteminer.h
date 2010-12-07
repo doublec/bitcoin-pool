@@ -123,7 +123,7 @@ public:
 	const bool GetSentWorkByBlock(const std::vector<unsigned char> &block, sentwork **work);
 	const bool GetSentWorkByID(const int64 id, sentwork **work);
 	const bool GetNewestSentWorkWithMetaHash(sentwork &work) const;
-	void SetWorkVerified(sentwork &work);
+	void SetWorkVerified(const int64 id, const int64 mhindex, const bool valid);
 
 private:
 	SOCKET m_socket;
@@ -161,9 +161,13 @@ public:
 
 	const bool Done() const							{ return m_done; }
 	const bool Verified() const						{ return m_verified; }
+	const int64 GetWorkID() const					{ return m_workid; }
+	const int64 GetMetaHashIndex() const			{ return m_mhindex; }
 
 private:
 
+	int64 m_workid;
+	int64 m_mhindex;
 	bool m_done;
 	bool m_verified;
 	uint256 m_tempbuff[3];

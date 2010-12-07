@@ -57,8 +57,11 @@ Remote miner client arguments
 	
 -address=xxxxxxx
 	The bitcoin address you want generated coins sent to.  The default is blank.  
-	A blank address will make the client's share of generated coins be kept by 
-	the server.
+	If the server is using the "connected" ditribution type, a blank address will 
+	make the client's share of generated coins be kept by the server.  If the 
+	server is using the "contributed" distribution type, a blank address will
+	mean the client contributes as normal, but the contribution is ignored when
+	determining how to distribute any coins.
 
 
 

@@ -38,4 +38,4 @@
 #include "../base58.h"
 #include "../strlcpy.h"
 
-#endif	// _remote_bitcon_headers_
+#endif	// _remote_bitcoin_headers_
