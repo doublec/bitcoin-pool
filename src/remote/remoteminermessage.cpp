@@ -150,46 +150,43 @@ bool RemoteMinerMessage::ReceiveMessage(std::vector<char> &buffer, RemoteMinerMe
 {
 	if(MessageReady(buffer)==true)
 	{
-		if(buffer.size()>4 && buffer[0]==REMOTEMINER_PROTOCOL_VERSION)
-		{
-			char flags=buffer[1];
-			unsigned long messagesize=0;
-			unsigned long headersize=4;
+		char flags=buffer[1];
+		unsigned long messagesize=0;
+		unsigned long headersize=4;
 
-			if((flags & FLAG_4BYTESIZE)!=FLAG_4BYTESIZE)
+		if((flags & FLAG_4BYTESIZE)!=FLAG_4BYTESIZE)
+		{
+			headersize=4;
+			messagesize|=(buffer[2] << 8) & 0xff00;
+			messagesize|=(buffer[3]) & 0xff;
+		}
+		else
+		{
+			if(buffer.size()>=6)
 			{
-				headersize=4;
-				messagesize|=(buffer[2] << 8) & 0xff00;
-				messagesize|=(buffer[3]) & 0xff;
+				headersize=6;
+				messagesize|=(buffer[2] << 24) & 0xff000000;
+				messagesize|=(buffer[3] << 16) & 0xff0000;
+				messagesize|=(buffer[4] << 8) & 0xff00;
+				messagesize|=buffer[5] & 0xff;
 			}
 			else
 			{
-				if(buffer.size()>=6)
-				{
-					headersize=6;
-					messagesize|=(buffer[2] << 24) & 0xff000000;
-					messagesize|=(buffer[3] << 16) & 0xff0000;
-					messagesize|=(buffer[4] << 8) & 0xff00;
-					messagesize|=buffer[5] & 0xff;
-				}
-				else
-				{
-					return false;
-				}
+				return false;
 			}
+		}
 
-			if(buffer.size()>=headersize+messagesize)
+		if(buffer.size()>=headersize+messagesize)
+		{
+			std::string objstr(buffer.begin()+headersize,buffer.begin()+headersize+messagesize);
+			json_spirit::Value value;
+			bool jsonread=json_spirit::read(objstr,value);
+			if(jsonread)
 			{
-				std::string objstr(buffer.begin()+headersize,buffer.begin()+headersize+messagesize);
-				json_spirit::Value value;
-				bool jsonread=json_spirit::read(objstr,value);
-				if(jsonread)
-				{
-					message=RemoteMinerMessage(value);
-				}
-				buffer.erase(buffer.begin(),buffer.begin()+headersize+messagesize);
-				return jsonread;
+				message=RemoteMinerMessage(value);
 			}
+			buffer.erase(buffer.begin(),buffer.begin()+headersize+messagesize);
+			return jsonread;
 		}
 	}
 	return false;

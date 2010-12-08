@@ -33,4 +33,4 @@
 #include <openssl/ripemd.h>
 #include "../headers.h"
 
-#endif	// _remote_bitcon_headers_
+#endif	// _remote_bitcoin_headers_

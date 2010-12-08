@@ -283,15 +283,21 @@ void RemoteClientConnection::SendMessage(const RemoteMinerMessage &message)
 	message.PushWireData(m_sendbuffer);
 }
 
-void RemoteClientConnection::SetWorkVerified(sentwork &work)
+void RemoteClientConnection::SetWorkVerified(const int64 id, const int64 mhindex, const bool valid)
 {
-	for(std::vector<sentwork>::reverse_iterator i=m_sentwork.rbegin(); i!=m_sentwork.rend(); i++)
+	if(mhindex>=0)
 	{
-		if((*i).m_block==work.m_block && (*i).m_metahashes.size()>0)
+		for(std::vector<sentwork>::reverse_iterator i=m_sentwork.rbegin(); i!=m_sentwork.rend(); i++)
 		{
-			(*i).m_metahashes[(*i).m_metahashes.size()-1].m_verified=true;
-			m_verifiedmetahashcount++;
-			return;
+			if((*i).m_blockid==id && (*i).m_metahashes.size()>mhindex)
+			{
+				(*i).m_metahashes[mhindex].m_verified=true;
+				if(valid)
+				{
+					m_verifiedmetahashcount++;
+				}
+				return;
+			}
 		}
 	}
 }
@@ -361,6 +367,7 @@ void MetaHashVerifier::Start(RemoteClientConnection *client, const RemoteClientC
 	m_metahashpos=0;
 
 	m_client=client;
+	m_workid=work.m_blockid;
 
 	for(int i=0; i<3; i++)
 	{
@@ -370,7 +377,7 @@ void MetaHashVerifier::Start(RemoteClientConnection *client, const RemoteClientC
 	*m_temphash=0;
 	*m_hash=0;
 
-	std::vector<RemoteClientConnection::metahash>::size_type mhpos=work.m_metahashes.size()-1;
+	m_mhindex=work.m_metahashes.size()-1;
 
 	FormatHashBlocks(m_temphash,sizeof(uint256));
 	for(int i=0; i<64/4; i++)
@@ -381,8 +388,8 @@ void MetaHashVerifier::Start(RemoteClientConnection *client, const RemoteClientC
 	::memcpy(m_blockbuffptr,&(work.m_block[0]),work.m_block.size());
 	::memcpy(m_midbuffptr,&(work.m_midstate[0]),work.m_midstate.size());
 
-	m_startnonce=work.m_metahashes[mhpos].m_startnonce;
-	m_digest=work.m_metahashes[mhpos].m_metahash;
+	m_startnonce=work.m_metahashes[m_mhindex].m_startnonce;
+	m_digest=work.m_metahashes[m_mhindex].m_metahash;
 
 	m_done=false;
 
@@ -1714,26 +1721,34 @@ void BitcoinMinerRemote()
 
 			if(client!=0 && metahashverifier.GetClient()==client && metahashverifier.Done()==true)
 			{
+
 				if(metahashverifier.Verified()==true)
 				{
+					client->SetWorkVerified(metahashverifier.GetWorkID(),metahashverifier.GetMetaHashIndex(),true);
 					printf("Client %s passed metahash verification\n",client->GetAddress().c_str());
 				}
 				else
 				{
+					client->SetWorkVerified(metahashverifier.GetWorkID(),metahashverifier.GetMetaHashIndex(),false);
 					printf("Client %s failed metahash verification\n",client->GetAddress().c_str());
 				}
 
 				metahashverifier.ClearClient();
 				lastverified=time(0);
+
+				client->SetLastVerifiedMetaHash(lastverified);
+				
 			}
 
 		}
 		
 		// send server status to all connected clients every minute
+		// also save contributed hashes in case of a server crash
 		if(difftime(time(0),lastserverstatus)>=60)
 		{
 			serv.SendServerStatus();
 			lastserverstatus=time(0);
+			serv.SaveContributedHashes();
 		}
 
 	}	// while fGenerateBitcoins

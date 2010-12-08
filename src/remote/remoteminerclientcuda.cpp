@@ -23,6 +23,7 @@ void RemoteMinerClientCUDA::Run(const std::string &server, const std::string &po
 	uint256 &hash=*alignup<16>(hashbuff);
 	uint256 lasttarget=0;
 	RemoteCUDARunner gpu;
+	unsigned long pass;
 
 	uint256 besthash=~(uint256(0));
 	unsigned int besthashnonce=0;
@@ -59,8 +60,9 @@ void RemoteMinerClientCUDA::Run(const std::string &server, const std::string &po
 		}
 		else
 		{
-			//if(m_gotserverhello==false)
+			if(m_gotserverhello==false || pass++%50==0)
 			{
+				pass=1;
 				Update();
 				while(MessageReady() && !ProtocolError())
 				{
@@ -159,7 +161,7 @@ void RemoteMinerClientCUDA::Run(const std::string &server, const std::string &po
 								lasttarget=m_currenttarget;
 							}
 
-							std::cout << "Best : " << besthash.ToString() << std::endl;
+							//std::cout << "Best : " << besthash.ToString() << std::endl;
 							besthash=~(uint256(0));
 							besthashnonce=0;
 						}
@@ -167,100 +169,6 @@ void RemoteMinerClientCUDA::Run(const std::string &server, const std::string &po
 
 				}
 
-				// increment metahash
-				//for(int i=0; i<gpu.GetNumThreads()*gpu.GetNumBlocks()*gpu.GetStepIterations(); i++)
-				{
-
-				}
-
-				/*
-				// do 10000 hashes at a time
-				for(unsigned int i=0; i<10000 && m_metahashpos<m_metahash.size(); i++)
-				{
-					SHA256Transform(&temphash,m_blockbuffptr,m_midbuffptr);
-					SHA256Transform(&hash,&temphash,SHA256InitState);
-
-					m_metahash[m_metahashpos++]=((unsigned char *)&hash)[0];
-
-					if((((unsigned short*)&hash)[14]==0) && (((unsigned short*)&hash)[15]==0))
-					{
-						for (int i = 0; i < sizeof(hash)/4; i++)
-						{
-							((unsigned int*)&hash)[i] = CryptoPP::ByteReverse(((unsigned int*)&hash)[i]);
-						}
-						
-						if(hash<=m_currenttarget)
-						{
-							std::cout << "Found block!" << std::endl;
-
-							// send hash found to server
-							SendFoundHash(m_currentblockid,m_metahashstartblock,(*m_nonce));
-						}
-
-						if(hash<besthash)
-						{
-							besthash=hash;
-							besthashnonce=(*m_nonce);
-						}
-					}
-					// hash isn't bytereversed yet, but besthash already is
-					else if(CryptoPP::ByteReverse(((unsigned int*)&hash)[7])<=((unsigned int *)&besthash)[7])
-					{
-						for (int i = 0; i < sizeof(hash)/4; i++)
-						{
-							((unsigned int*)&hash)[i] = CryptoPP::ByteReverse(((unsigned int*)&hash)[i]);
-						}
-						if(hash<besthash)
-						{
-							besthash=hash;
-							besthashnonce=(*m_nonce);
-						}
-					}
-
-					(*m_nonce)++;
-				}
-
-				if(m_metahashpos>=m_metahash.size())
-				{
-
-					std::vector<unsigned char> digest(SHA256_DIGEST_LENGTH,0);
-					SHA256(&m_metahash[0],m_metahash.size(),&digest[0]);
-
-					// send the metahash to the server and request a new block if the nonce is approaching the limit
-					SendMetaHash(m_currentblockid,m_metahashstartblock,m_metahashstartnonce,digest,besthash,besthashnonce);
-					if((*m_nonce)>4000000000)
-					{
-						std::cout << "Requesting a new block" << std::endl;
-						SendWorkRequest();
-					}
-
-					// reset the nonce to 0 if this is a new block
-					if(m_nextblock!=m_metahashstartblock)
-					{
-						(*m_nonce)=0;
-					}
-					// set meta nonce first because memcpy will overwrite it
-					m_metahashstartnonce=(*m_nonce);
-					m_currentblockid=m_nextblockid;
-					m_currenttarget=m_nexttarget;
-					::memcpy(m_midbuffptr,&m_nextmidstate[0],32);
-					::memcpy(m_blockbuffptr,&m_nextblock[0],64);
-					m_metahashstartblock=m_nextblock;
-					m_metahashpos=0;
-					// set nonce again because it was overwritten by memcpy
-					(*m_nonce)=m_metahashstartnonce;
-
-					if(lasttarget!=m_currenttarget)
-					{
-						std::cout << "Target Hash : " << m_currenttarget.ToString() << std::endl;
-						lasttarget=m_currenttarget;
-					}
-
-					std::cout << "Best : " << besthash.ToString() << std::endl;
-					besthash=~(uint256(0));
-					besthashnonce=0;
-				}
-				*/
 			}
 
 		}
