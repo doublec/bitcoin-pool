@@ -5,4 +5,5 @@ cmake-bitcoinr/CMakeFiles/
 cmake-bitcoinr/Makefile
 cmake-bitcoinr/bitcoinr
 cmake-bitcoinr/cmake_install.cmake
+cmake-bitcoind/bitcoind
 cmake_install.cmake
