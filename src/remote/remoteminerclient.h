@@ -29,6 +29,8 @@
 
 #include "remotebitcoinheaders.h"
 #include "remoteminermessage.h"
+#include "remoteminerthreadcpu.h"
+#include "remoteminerthreadgpu.h"
 #include "../cryptopp/sha.h"
 
 class RemoteMinerClient
@@ -37,7 +39,7 @@ public:
 	RemoteMinerClient();
 	virtual ~RemoteMinerClient();
 
-	virtual void Run(const std::string &server, const std::string &port, const std::string &password, const std::string &address);
+	virtual void Run(const std::string &server, const std::string &port, const std::string &password, const std::string &address, const int threadcount=1);
 
 	const bool Connect(const std::string &server, const std::string &port);
 	const bool Disconnect();
@@ -55,15 +57,15 @@ protected:
 
 	void SocketSend();
 	void SocketReceive();
-	const bool Update();
+	const bool Update(const int ms=100);
 
 	const bool EncodeBase64(const std::vector<unsigned char> &data, std::string &encoded) const;
 	const bool DecodeBase64(const std::string &encoded, std::vector<unsigned char> &decoded) const;
 
 	void SendClientHello(const std::string &password, const std::string &address);
-	void SendMetaHash(const int64 blockid, const std::vector<unsigned char> &block, const unsigned int startnonce, const std::vector<unsigned char> &digest, const uint256 &besthash, const unsigned int besthashnonce);
+	void SendMetaHash(const int64 blockid, const unsigned int startnonce, const std::vector<unsigned char> &digest, const uint256 &besthash, const unsigned int besthashnonce);
 	void SendWorkRequest();
-	void SendFoundHash(const int64 blockid, const std::vector<unsigned char> &block, const unsigned int nonce);
+	void SendFoundHash(const int64 blockid, const unsigned int nonce);
 
 	void HandleMessage(const RemoteMinerMessage &message);
 
@@ -72,49 +74,8 @@ protected:
 
 	void SaveBlock(json_spirit::Object &block, const std::string &filename);
 
-	inline void SHA256Transform(void* pstate, void* pinput, const void* pinit)
-	{
-		::memcpy(pstate, pinit, 32);
-		CryptoPP::SHA256::Transform((CryptoPP::word32*)pstate, (CryptoPP::word32*)pinput);
-	}
-
-	int FormatHashBlocks(void* pbuffer, unsigned int len)
-	{
-		unsigned char* pdata = (unsigned char*)pbuffer;
-		unsigned int blocks = 1 + ((len + 8) / 64);
-		unsigned char* pend = pdata + 64 * blocks;
-		memset(pdata + len, 0, 64 * blocks - len);
-		pdata[len] = 0x80;
-		unsigned int bits = len * 8;
-		pend[-1] = (bits >> 0) & 0xff;
-		pend[-2] = (bits >> 8) & 0xff;
-		pend[-3] = (bits >> 16) & 0xff;
-		pend[-4] = (bits >> 24) & 0xff;
-		return blocks;
-	}
-
 	uint160 m_address160;
-
 	bool m_gotserverhello;
-	bool m_havework;
-	std::vector<unsigned char> m_metahashstartblock;
-	unsigned int m_metahashstartnonce;
-	std::vector<unsigned char> m_metahash;
-	std::vector<unsigned char>::size_type m_metahashpos;
-
-	int64 m_nextblockid;
-	uint256 m_nexttarget;
-	std::vector<unsigned char> m_nextmidstate;
-	std::vector<unsigned char> m_nextblock;
-
-	int64 m_currentblockid;
-	uint256 m_currenttarget;
-	unsigned char m_currentmidbuff[256];
-	unsigned char m_currentblockbuff[256];
-	unsigned char *m_midbuffptr;
-	unsigned char *m_blockbuffptr;
-	unsigned int *m_nonce;
-
 	SOCKET m_socket;
 	std::vector<char> m_receivebuffer;
 	std::vector<char> m_sendbuffer;
@@ -122,6 +83,25 @@ protected:
 	fd_set m_readfs;
 	fd_set m_writefs;
 	struct timeval m_timeval;
+	unsigned int m_metahashsize;
+
+/*
+#if  defined(_BITCOIN_MINER_CUDA_)
+	RemoteMinerThreadCUDA m_minerthread;
+#elif defined(_BITCOIN_MINER_OPENCL_)
+	RemoteMinerThreadOpenCL m_minerthread;
+#else
+	RemoteMinerThreadCPU m_minerthread;
+#endif
+	*/
+
+#if defined(_BITCOIN_MINER_CUDA_) || defined(_BITCOIN_MINER_OPENCL_)
+	typedef RemoteMinerThreadGPU threadtype;
+#else
+	typedef RemoteMinerThreadCPU threadtype;
+#endif
+
+	RemoteMinerThreads m_minerthreads;
 };
 
 #endif	// _remote_miner_client_

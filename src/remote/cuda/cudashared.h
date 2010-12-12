@@ -34,7 +34,6 @@ typedef struct
 {
 	unsigned int m_bestnonce;
 	unsigned int m_bestAH[8];
-	unsigned int m_nonce;
 }remote_cuda_out;
 
 void remote_cuda_process_helper(remote_cuda_in *in, remote_cuda_out *out, unsigned char *metahash, const unsigned int loops, const unsigned int bits, const int grid, const int threads);

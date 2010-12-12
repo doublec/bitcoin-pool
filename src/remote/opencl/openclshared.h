@@ -16,19 +16,34 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 **/
 
-#ifndef _remote_miner_client_cuda_
-#define _remote_miner_client_cuda_
+#ifndef _remote_opencl_shared_
+#define _remote_opencl_shared_
 
-#include "remoteminerclient.h"
+#ifdef _BITCOIN_MINER_OPENCL_
 
-class RemoteMinerClientCUDA:public RemoteMinerClient
+#include <CL/opencl.h>
+
+typedef struct
 {
-public:
-	RemoteMinerClientCUDA();
-	virtual ~RemoteMinerClientCUDA();
+	cl_uint m_AH[8];
+	cl_uint m_merkle;
+	cl_uint m_ntime;
+	cl_uint m_nbits;
+	cl_uint m_nonce;
+}remote_opencl_in;
 
-	virtual void Run(const std::string &server, const std::string &port, const std::string &password, const std::string &address);
+typedef struct
+{
+	cl_uint m_bestnonce;
+	cl_uint m_bestAH[8];
+//debug
+	cl_uint m_nonce;
+	cl_uint m_myid;
+	cl_uint m_loops;
+}remote_opencl_out;
 
-};
+void remote_cuda_process_helper(remote_opencl_in *in, remote_opencl_out *out, unsigned char *metahash, const unsigned int loops, const unsigned int bits, const int grid, const int threads);
 
-#endif	// _remote_miner_client_cuda_
+#endif	// _BITCOIN_MINER_OPENCL_
+
+#endif	// _remote_opencl_shared_

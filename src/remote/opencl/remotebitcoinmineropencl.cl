@@ -29,20 +29,24 @@ typedef struct
 	uint m_ntime;
 	uint m_nbits;
 	uint m_nonce;
-}opencl_in;
+}remote_opencl_in;
 
 typedef struct
 {
 	uint m_bestnonce;
-	uint m_bestg;
-}opencl_out;
+	uint m_bestAH[8];
+//debug
+	uint m_nonce;
+	uint m_myid;
+	uint m_loops;
+}remote_opencl_out;
 
 #define byteswap(x) (((x>>24) & f4) | ((x>>8) & f3) | ((x<<8) & f2) | ((x<<24) & f1))
 #define rotateright(x,bits) (rotate(x,32-bits))
 #define R(x) (work[x] = (rotateright(work[x-2],17)^rotateright(work[x-2],19)^((work[x-2]&f5)>>10)) + work[x -  7] + (rotateright(work[x-15],7)^rotateright(work[x-15],18)^((work[x-15]&f5)>>3)) + work[x - 16])
 #define sharound(a,b,c,d,e,f,g,h,x,K) {t1=h+(rotateright(e,6)^rotateright(e,11)^rotateright(e,25))+(g^(e&(f^g)))+K+x; t2=(rotateright(a,2)^rotateright(a,13)^rotateright(a,22))+((a&b)|(c&(a|b))); d+=t1; h=t1+t2;}
 
-__kernel void opencl_process(__global opencl_in *in, __global opencl_out *out, const uint loops, const uint bits)
+__kernel void opencl_process(__global remote_opencl_in *in, __global remote_opencl_out *out, __global uchar *metahash, const uint loops, const uint bits)
 {
 
     uint work[64];
@@ -51,7 +55,7 @@ __kernel void opencl_process(__global opencl_in *in, __global opencl_out *out, c
 	const uint nonce=in->m_nonce + (myid << bits);
 	uint t1,t2;
 	uint bestnonce=0;
-	uint bestg=~0;
+	uint bestAH[8]={~0,~0,~0,~0,~0,~0,~0,~0};
 	
 	// the first 3 rounds we can do outside the loop because they depend on work[0] through work[2] which won't change
 	uint A1,B1,C1,D1,E1,F1,G1,H1;
@@ -82,7 +86,8 @@ __kernel void opencl_process(__global opencl_in *in, __global opencl_out *out, c
 		work[0]=in->m_merkle;
 		work[1]=in->m_ntime;
 		work[2]=in->m_nbits;
-		work[3]=byteswap(nonce+it);
+		//work[3]=byteswap(nonce+it);
+		work[3]=nonce+it;
 		work[4]=0x80000000;
 		work[5]=0x00000000;
 		work[6]=0x00000000;
@@ -251,23 +256,50 @@ __kernel void opencl_process(__global opencl_in *in, __global opencl_out *out, c
 		sharound(F,G,H,A,B,C,D,E,R(59),0x8CC70208);
 		sharound(E,F,G,H,A,B,C,D,R(60),0x90BEFFFA);
 		sharound(D,E,F,G,H,A,B,C,R(61),0xA4506CEB);
-		//we don't need to do these last 2 rounds as they update F, B, E and A, but we only care about G and H
-		//sharound(C,D,E,F,G,H,A,B,R(62),0xBEF9A3F7);
-		//sharound(B,C,D,E,F,G,H,A,R(63),0xC67178F2);
+		sharound(C,D,E,F,G,H,A,B,R(62),0xBEF9A3F7);
+		sharound(B,C,D,E,F,G,H,A,R(63),0xC67178F2);
 
 		G+=0x1f83d9ab;
 		G=byteswap(G);
 		H+=0x5be0cd19;
+		H=byteswap(H);
+		
+		A+=0x6A09E667;
+		
+		metahash[(myid*loops)+it]=((uchar *)&A)[0];
 
-		if((H==0) && (G<=bestg))
+		if((H<out[myid].m_bestAH[7]) || (H==out[myid].m_bestAH[7] && G<=out[myid].m_bestAH[6]))
 		{
+			B+=0xBB67AE85;
+			C+=0x3C6EF372;
+			D+=0xA54FF53A;
+			E+=0x510E527F;
+			F+=0x9B05688C;
+			
+			bestAH[0]=byteswap(A);
+			bestAH[1]=byteswap(B);
+			bestAH[2]=byteswap(C);
+			bestAH[3]=byteswap(D);
+			bestAH[4]=byteswap(E);
+			bestAH[5]=byteswap(F);
+			// G and H already byteswapped
+			bestAH[6]=G;
+			bestAH[7]=H;
+		
 			bestnonce=nonce+it;
-			bestg=G;
 		}
 
     }
     
     out[myid].m_bestnonce=bestnonce;
-    out[myid].m_bestg=bestg;
+    for(int i=0; i<8; i++)
+    {
+		out[myid].m_bestAH[i]=bestAH[i];
+    }
+    
+    //debug
+    out[myid].m_myid=myid;
+    out[myid].m_loops=loops;
+    out[myid].m_nonce=nonce;
 
 }

@@ -242,19 +242,13 @@ __global__ void remote_cuda_process(remote_cuda_in *in, remote_cuda_out *out, un
 			E+=0x510E527F;
 			F+=0x9B05688C;
 			
-			A=byteswap(A);
-			B=byteswap(B);
-			C=byteswap(C);
-			D=byteswap(D);
-			E=byteswap(E);
-			F=byteswap(F);
-			
-			bestAH[0]=A;
-			bestAH[1]=B;
-			bestAH[2]=C;
-			bestAH[3]=D;
-			bestAH[4]=E;
-			bestAH[5]=F;
+			bestAH[0]=byteswap(A);
+			bestAH[1]=byteswap(B);
+			bestAH[2]=byteswap(C);
+			bestAH[3]=byteswap(D);
+			bestAH[4]=byteswap(E);
+			bestAH[5]=byteswap(F);
+			// G and H already byteswapped
 			bestAH[6]=G;
 			bestAH[7]=H;
 		
@@ -262,7 +256,7 @@ __global__ void remote_cuda_process(remote_cuda_in *in, remote_cuda_out *out, un
 		}
 
     }
-    out[myid].m_nonce=nonce;
+
     out[myid].m_bestnonce=bestnonce;
     for(int i=0; i<8; i++)
     {

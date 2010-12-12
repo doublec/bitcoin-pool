@@ -63,6 +63,9 @@ Remote miner client arguments
 	mean the client contributes as normal, but the contribution is ignored when
 	determining how to distribute any coins.
 
+-threads=x
+	Start this number of miner threads.  The default value is the number of cores
+	on your processor if using the CPU miner, or 1 if using a GPU miner.
 
 
 *********************

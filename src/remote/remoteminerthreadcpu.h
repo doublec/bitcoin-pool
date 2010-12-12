@@ -16,22 +16,35 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 **/
 
-#ifndef _remote_bitcoin_headers_
-#define _remote_bitcoin_headers_
+#ifndef _remoteminer_thread_cpu_
+#define _remoteminer_thread_cpu_
 
-#ifdef _WIN32
-#include <winsock2.h>
-#include <windows.h>
-#endif
-#include <boost/thread.hpp>
-#include <boost/date_time/posix_time/posix_time_types.hpp>
-#include <boost/date_time/gregorian/gregorian_types.hpp>
-#include <cassert>
-#include <map>
-#include <vector>
-#include <string>
-#include <openssl/sha.h>
-#include <openssl/ripemd.h>
-#include "../headers.h"
+#include "remoteminerthread.h"
 
-#endif	// _remote_bitcoin_headers_
+class RemoteMinerThreadCPU:public RemoteMinerThread
+{
+public:
+	RemoteMinerThreadCPU();
+	~RemoteMinerThreadCPU();
+
+	virtual const bool Start()
+	{
+		m_threaddata.m_done=false;
+		m_threaddata.m_havework=false;
+		m_threaddata.m_generate=true;
+		m_threaddata.m_nextblock.m_blockid=0;
+		FreeMetaHashPointers();
+		if(!CreateThread(RemoteMinerThreadCPU::Run,&m_threaddata))
+		{
+			m_threaddata.m_done=true;
+			return false;
+		}
+		return true;
+	}
+
+private:
+	static void Run(void *arg);
+
+};
+
+#endif	// _remoteminer_thread_cpu_
