@@ -152,6 +152,8 @@ void RemoteCUDARunner::FindBestConfiguration()
 		hight=m_requestedthreads;
 	}
 
+	std::cout << "CUDA finding best kernel configuration" << std::endl;
+
 	for(int numb=lowb; numb<=highb; numb*=2)
 	{
 		for(int numt=lowt; numt<=hight; numt*=2)
@@ -202,8 +204,6 @@ void RemoteCUDARunner::FindBestConfiguration()
 
 const unsigned long RemoteCUDARunner::RunStep()
 {
-	unsigned long best=0;
-	unsigned long bestg=~0;
 
 	if(m_in==0 || m_out==0 || m_devin==0 || m_devout==0)
 	{
@@ -217,16 +217,7 @@ const unsigned long RemoteCUDARunner::RunStep()
 	cutilSafeCall(cudaMemcpy(m_out,m_devout,m_numb*m_numt*sizeof(remote_cuda_out),cudaMemcpyDeviceToHost));
 	cutilSafeCall(cudaMemcpy(m_metahash,m_devmetahash,m_numb*m_numt*GetStepIterations(),cudaMemcpyDeviceToHost));
 
-	for(int i=0; i<m_numb*m_numt; i++)
-	{
-		if(m_out[i].m_bestnonce!=0 && m_out[i].m_bestAH[6]<bestg)
-		{
-			best=m_out[i].m_bestnonce;
-			bestg=m_out[i].m_bestAH[6];
-		}
-	}
-
-	return best;
+	return 0;
 
 }
 

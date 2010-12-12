@@ -22,12 +22,14 @@
 #include "../headers.h"
 #include "remoteminermessage.h"
 #include "../cryptopp/sha.h"
+#include "timestats.h"
 #include <vector>
 #include <map>
+#include <string>
 
 extern const int BITCOINMINERREMOTE_THREADINDEX;
 extern const int BITCOINMINERREMOTE_HASHESPERMETA;
-#define BITCOINMINERREMOTE_SERVERVERSIONSTR "1.2.1"
+#define BITCOINMINERREMOTE_SERVERVERSIONSTR "1.2.2"
 
 void ThreadBitcoinMinerRemote(void* parg);
 void BitcoinMinerRemote();
@@ -37,6 +39,9 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast);
 int FormatHashBlocks(void* pbuffer, unsigned int len);
 void SHA256Transform(void* pstate, void* pinput, const void* pinit);
 bool ProcessBlock(CNode* pfrom, CBlock* pblock);
+
+extern TimeStats timestats;
+#define SCOPEDTIME(section)	ScopedTimer scopedtimer(timestats,section);
 
 class RemoteClientConnection
 {
@@ -58,7 +63,6 @@ public:
 	const bool GetRequestedRecipientAddress(uint160 &recipient)		{ recipient=m_recipientaddress; return m_recipientaddress!=0; }
 	const int64 GetCalculatedKHashRateFromBestHash(const int sec=60, const int minsec=60) const;
 	const int64 GetCalculatedKHashRateFromMetaHash(const int sec=60, const int minsec=60) const;
-	const int64 GetReportedKHashRate() const;
 	const bool GotClientHello() const								{ return m_gotclienthello; }
 	void SetGotClientHello(bool got)								{ m_gotclienthello=got; }
 
@@ -125,6 +129,9 @@ public:
 	const bool GetNewestSentWorkWithMetaHash(sentwork &work) const;
 	void SetWorkVerified(const int64 id, const int64 mhindex, const bool valid);
 
+	const std::vector<char>::size_type GetReceiveBufferSize() const	{ return m_receivebuffer.size(); }
+	const std::vector<char>::size_type GetSendBufferSize() const	{ return m_sendbuffer.size(); }
+
 private:
 	SOCKET m_socket;
 	struct sockaddr_storage m_addr;
@@ -154,7 +161,7 @@ public:
 	~MetaHashVerifier();
 
 	void Start(RemoteClientConnection *client, const RemoteClientConnection::sentwork &work);
-	void Step(const int hashes=100000);
+	void Step(const int hashes=10000);
 
 	RemoteClientConnection *GetClient()				{ return m_client; }
 	void ClearClient()								{ m_client=0; }

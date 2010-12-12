@@ -37,7 +37,12 @@
 bool RemoteMinerClient::m_wsastartup=false;
 #endif
 
-RemoteMinerClient::RemoteMinerClient():m_socket(INVALID_SOCKET),m_tempbuffer(4096,0),m_gotserverhello(false)
+int OutputDebugStringF(const char* pszFormat, ...)
+{
+	return 0;
+}
+
+RemoteMinerClient::RemoteMinerClient():m_socket(INVALID_SOCKET),m_tempbuffer(8192,0),m_gotserverhello(false),m_metahashsize(0)
 {
 #ifdef _WIN32
 	if(m_wsastartup==false)
@@ -47,11 +52,6 @@ RemoteMinerClient::RemoteMinerClient():m_socket(INVALID_SOCKET),m_tempbuffer(409
 		m_wsastartup=true;
 	}
 #endif
-	m_midbuffptr=alignup<16>(m_currentmidbuff);
-	m_blockbuffptr=alignup<16>(m_currentblockbuff);
-	m_nonce=(unsigned int *)(m_blockbuffptr+12);
-	m_nextblockid=0;
-	m_currentblockid=0;
 }
 
 RemoteMinerClient::~RemoteMinerClient()
@@ -246,39 +246,52 @@ void RemoteMinerClient::HandleMessage(const RemoteMinerMessage &message)
 			tval=json_spirit::find_value(message.GetValue().get_obj(),"metahashrate");
 			if(tval.type()==json_spirit::int_type)
 			{
-				m_metahashstartblock.clear();
-				m_metahashstartblock.insert(m_metahashstartblock.end(),128,0);
-				m_metahash.clear();
-				m_metahash.resize(tval.get_int());
-				m_metahashpos=0;
+				//m_metahashstartblock.clear();
+				//m_metahashstartblock.insert(m_metahashstartblock.end(),128,0);
+				//m_metahash.clear();
+				//m_metahash.resize(tval.get_int());
+				//m_metahashpos=0;
+
+				m_minerthreads.SetMetaHashSize(tval.get_int());
+				//m_minerthread.SetMetaHashSize(tval.get_int());
+				m_metahashsize=tval.get_int();
 			}
 			tval=json_spirit::find_value(message.GetValue().get_obj(),"serverversion");
 			if(tval.type()==json_spirit::str_type)
 			{
 				std::cout << "Server version " << tval.get_str() << std::endl;
 			}
+			tval=json_spirit::find_value(message.GetValue().get_obj(),"distributiontype");
+			if(tval.type()==json_spirit::str_type)
+			{
+				std::cout << "Distribution type : " << tval.get_str() << std::endl;
+			}
 		}
 		else if(tval.get_int()==RemoteMinerMessage::MESSAGE_TYPE_SERVERSENDWORK)
 		{
+			int64 nextblockid=0;
+			std::vector<unsigned char> nextblock;
+			std::vector<unsigned char> nextmidstate;
+			uint256 nexttarget;
 			tval=json_spirit::find_value(message.GetValue().get_obj(),"blockid");
 			if(tval.type()==json_spirit::int_type)
 			{
-				m_nextblockid=tval.get_int();
+				nextblockid=tval.get_int();
 			}
 			tval=json_spirit::find_value(message.GetValue().get_obj(),"block");
 			if(tval.type()==json_spirit::str_type)
 			{
-				DecodeBase64(tval.get_str(),m_nextblock);
+				DecodeBase64(tval.get_str(),nextblock);
 			}
 			tval=json_spirit::find_value(message.GetValue().get_obj(),"target");
 			if(tval.type()==json_spirit::str_type)
 			{
-				m_nexttarget.SetHex(tval.get_str());
+				nexttarget.SetHex(tval.get_str());
 			}
 			tval=json_spirit::find_value(message.GetValue().get_obj(),"midstate");
 			if(tval.type()==json_spirit::str_type)
 			{
-				DecodeBase64(tval.get_str(),m_nextmidstate);
+				DecodeBase64(tval.get_str(),nextmidstate);
 			}
 
 			tval=json_spirit::find_value(message.GetValue().get_obj(),"fullblock");
@@ -299,6 +312,10 @@ void RemoteMinerClient::HandleMessage(const RemoteMinerMessage &message)
 				}
 			}
 
+			//m_minerthread.SetNextBlock(nextblockid,nexttarget,nextblock,nextmidstate);
+			m_minerthreads.SetNextBlock(nextblockid,nexttarget,nextblock,nextmidstate);
+
+			/*
 			if(m_havework==false)
 			{
 				m_currenttarget=m_nexttarget;
@@ -311,6 +328,7 @@ void RemoteMinerClient::HandleMessage(const RemoteMinerMessage &message)
 				(*m_nonce)=0;
 			}
 			m_havework=true;
+			*/
 		}
 		else if(tval.get_int()==RemoteMinerMessage::MESSAGE_TYPE_SERVERSTATUS)
 		{
@@ -404,49 +422,42 @@ const std::string RemoteMinerClient::ReverseAddressHex(const uint160 address) co
 	return rval;
 }
 
-void RemoteMinerClient::Run(const std::string &server, const std::string &port, const std::string &password, const std::string &address)
+void RemoteMinerClient::Run(const std::string &server, const std::string &port, const std::string &password, const std::string &address, const int threadcount)
 {
-	static const unsigned int SHA256InitState[8] ={0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
-	uint256 tempbuff[4];
-	uint256 &temphash=*alignup<16>(tempbuff);
-	uint256 hashbuff[4];
-	uint256 &hash=*alignup<16>(hashbuff);
-	uint256 lasttarget=0;
+	int64 lastrequestedwork=GetTimeMillis();
+	//std::vector<unsigned char> mhdigest(SHA256_DIGEST_LENGTH,0);
 
-	uint256 besthash=~(uint256(0));
-	unsigned int besthashnonce=0;
+	//debug
+	int64 starttime=0;
+	int64 hashcount=0;
+	int64 lastdisplay=0;
 
-	SetThreadPriority(THREAD_PRIORITY_LOWEST);
-
-	FormatHashBlocks(&temphash,sizeof(temphash));
-	for(int i=0; i<64/4; i++)
-	{
-		((unsigned int*)&temphash)[i] = CryptoPP::ByteReverse(((unsigned int*)&temphash)[i]);
-	}
+	std::cout << "Client will start " << threadcount << " miner threads" << std::endl;
 
 	while(true)
 	{
 		if(IsConnected()==false)
 		{
+			//m_minerthread.Stop();
+			m_minerthreads.Stop();
 			std::cout << "Attempting to connect to " << server << ":" << port << std::endl;
 			Sleep(1000);
 			if(Connect(server,port))
 			{
+				//m_minerthread.Start();
+				m_minerthreads.Start(new threadtype);
 				m_gotserverhello=false;
-				m_havework=false;
-				m_metahashpos=0;
-				lasttarget=0;
-				(*m_nonce)=0;
-				m_metahashstartnonce=0;
-				besthash=~(uint256(0));
-				besthashnonce=0;
+				//m_havework=false;
 				std::cout << "Connected to " << server << ":" << port << std::endl;
 				SendClientHello(password,address);
+
+				//debug
+				starttime=GetTimeMillis();
 			}
 		}
 		else
 		{
-			if(m_gotserverhello==false || m_metahashpos%100000==0)
+			//if(m_gotserverhello==false)
 			{
 				Update();
 				while(MessageReady() && !ProtocolError())
@@ -472,93 +483,70 @@ void RemoteMinerClient::Run(const std::string &server, const std::string &port, 
 				}
 			}
 
-			if(m_havework)
+			//if(m_minerthread.HasWork())
 			{
-				// do 10000 hashes at a time
-				for(unsigned int i=0; i<10000 && m_metahashpos<m_metahash.size(); i++)
+				//if(m_minerthread.Done()==true)
+				if(m_minerthreads.RunningThreadCount()<threadcount)
 				{
-					SHA256Transform(&temphash,m_blockbuffptr,m_midbuffptr);
-					SHA256Transform(&hash,&temphash,SHA256InitState);
-
-					m_metahash[m_metahashpos++]=((unsigned char *)&hash)[0];
-
-					if((((unsigned short*)&hash)[14]==0) && (((unsigned short*)&hash)[15]==0))
-					{
-						for (int i = 0; i < sizeof(hash)/4; i++)
-						{
-							((unsigned int*)&hash)[i] = CryptoPP::ByteReverse(((unsigned int*)&hash)[i]);
-						}
-						
-						if(hash<=m_currenttarget)
-						{
-							std::cout << "Found block!" << std::endl;
-
-							// send hash found to server
-							SendFoundHash(m_currentblockid,m_metahashstartblock,(*m_nonce));
-						}
-
-						if(hash<besthash)
-						{
-							besthash=hash;
-							besthashnonce=(*m_nonce);
-						}
-					}
-					// hash isn't bytereversed yet, but besthash already is
-					else if(CryptoPP::ByteReverse(((unsigned int*)&hash)[7])<=((unsigned int *)&besthash)[7])
-					{
-						for (int i = 0; i < sizeof(hash)/4; i++)
-						{
-							((unsigned int*)&hash)[i] = CryptoPP::ByteReverse(((unsigned int*)&hash)[i]);
-						}
-						if(hash<besthash)
-						{
-							besthash=hash;
-							besthashnonce=(*m_nonce);
-						}
-					}
-
-					(*m_nonce)++;
+					//m_minerthread.Start();
+					m_minerthreads.Start(new threadtype);
 				}
 
-				if(m_metahashpos>=m_metahash.size())
+				//if(m_minerthread.HaveFoundHash())
+				if(m_minerthreads.HaveFoundHash())
 				{
+					std::cout << "Found Hash!" << std::endl;
+					RemoteMinerThread::foundhash fhash;
+					//m_minerthread.GetFoundHash(fhash);
+					m_minerthreads.GetFoundHash(fhash);
+					SendFoundHash(fhash.m_blockid,fhash.m_nonce);
+					SendWorkRequest();
+				}
 
-					std::vector<unsigned char> digest(SHA256_DIGEST_LENGTH,0);
-					SHA256(&m_metahash[0],m_metahash.size(),&digest[0]);
+				//while(m_minerthread.HaveHashResult())
+				while(m_minerthreads.HaveHashResult())
+				{
+					RemoteMinerThread::hashresult hresult;
+					//m_minerthread.GetHashResult(hresult);
+					m_minerthreads.GetHashResult(hresult);
 
-					// send the metahash to the server and request a new block if the nonce is approaching the limit
-					SendMetaHash(m_currentblockid,m_metahashstartblock,m_metahashstartnonce,digest,besthash,besthashnonce);
-					if((*m_nonce)>4000000000)
+					//SHA256(hresult.m_metahashptr,m_metahashsize,&mhdigest[0]);
+
+					SendMetaHash(hresult.m_blockid,hresult.m_metahashstartnonce,hresult.m_metahashdigest,hresult.m_besthash,hresult.m_besthashnonce);
+
+					//m_minerthread.AddMetaHashPointer(hresult.m_metahashptr);
+
+					//debug
+					//std::cout << "sent result " << hresult.m_blockid << " " << hresult.m_metahashstartnonce << " " << hresult.m_besthashnonce << std::endl;
+					hashcount+=m_metahashsize;
+
+					if(hresult.m_metahashstartnonce>4000000000 && (lastrequestedwork+5000)<GetTimeMillis())
 					{
-						std::cout << "Requesting a new block" << std::endl;
+						std::cout << "Requesting a new block " << GetTimeMillis() << std::endl;
 						SendWorkRequest();
+						lastrequestedwork=GetTimeMillis();
 					}
+				}
+			}
+			//else
+			if(m_minerthreads.NeedWork())
+			{
+				if((lastrequestedwork+5000)<GetTimeMillis())
+				{
+					std::cout << "Requesting a new block " << GetTimeMillis() << std::endl;
+					SendWorkRequest();
+					lastrequestedwork=GetTimeMillis();
+				}
+			}
 
-					// reset the nonce to 0 if this is a new block
-					if(m_nextblock!=m_metahashstartblock)
-					{
-						(*m_nonce)=0;
-					}
-					// set meta nonce first because memcpy will overwrite it
-					m_metahashstartnonce=(*m_nonce);
-					m_currentblockid=m_nextblockid;
-					m_currenttarget=m_nexttarget;
-					::memcpy(m_midbuffptr,&m_nextmidstate[0],32);
-					::memcpy(m_blockbuffptr,&m_nextblock[0],64);
-					m_metahashstartblock=m_nextblock;
-					m_metahashpos=0;
-					// set nonce again because it was overwritten by memcpy
-					(*m_nonce)=m_metahashstartnonce;
-
-					if(lasttarget!=m_currenttarget)
-					{
-						std::cout << "Target Hash : " << m_currenttarget.ToString() << std::endl;
-						lasttarget=m_currenttarget;
-					}
-
-					std::cout << "Best : " << besthash.ToString() << std::endl;
-					besthash=~(uint256(0));
-					besthashnonce=0;
+			//debug
+			if(lastdisplay+10000<=GetTimeMillis())
+			{
+				if(((GetTimeMillis()-starttime)/1000)>0)
+				{
+					//std::cout << hashcount/((GetTimeMillis()-starttime)/1000) << std::endl;
+					//std::cout << "sendsize=" << m_sendbuffer.size() << std::endl;
+					lastdisplay=GetTimeMillis();
 				}
 			}
 
@@ -593,22 +581,12 @@ void RemoteMinerClient::SendClientHello(const std::string &password, const std::
 	SendMessage(RemoteMinerMessage(obj));
 }
 
-void RemoteMinerClient::SendFoundHash(const int64 blockid, const std::vector<unsigned char> &block, const unsigned int nonce)
+void RemoteMinerClient::SendFoundHash(const int64 blockid, const unsigned int nonce)
 {
 	json_spirit::Object obj;
-	std::string blockstr("");
-	
-	EncodeBase64(block,blockstr);
 	
 	obj.push_back(json_spirit::Pair("type",static_cast<int>(RemoteMinerMessage::MESSAGE_TYPE_CLIENTFOUNDHASH)));
-	if(blockid!=0)
-	{
-		obj.push_back(json_spirit::Pair("blockid",static_cast<boost::int64_t>(blockid)));
-	}
-	else
-	{
-		obj.push_back(json_spirit::Pair("block",blockstr));
-	}
+	obj.push_back(json_spirit::Pair("blockid",static_cast<boost::int64_t>(blockid)));
 	obj.push_back(json_spirit::Pair("nonce",static_cast<boost::int64_t>(nonce)));
 	
 	SendMessage(RemoteMinerMessage(obj));
@@ -619,23 +597,14 @@ void RemoteMinerClient::SendMessage(const RemoteMinerMessage &message)
 	message.PushWireData(m_sendbuffer);
 }
 
-void RemoteMinerClient::SendMetaHash(const int64 blockid, const std::vector<unsigned char> &block, const unsigned int startnonce, const std::vector<unsigned char> &digest, const uint256 &besthash, const unsigned int besthashnonce)
+void RemoteMinerClient::SendMetaHash(const int64 blockid, const unsigned int startnonce, const std::vector<unsigned char> &digest, const uint256 &besthash, const unsigned int besthashnonce)
 {
-	std::string blockstr("");
 	std::string digeststr("");
 
-	EncodeBase64(block,blockstr);
 	EncodeBase64(digest,digeststr);
 	json_spirit::Object obj;
 	obj.push_back(json_spirit::Pair("type",static_cast<int>(RemoteMinerMessage::MESSAGE_TYPE_CLIENTMETAHASH)));
-	if(blockid!=0)
-	{
-		obj.push_back(json_spirit::Pair("blockid",static_cast<boost::int64_t>(blockid)));
-	}
-	else
-	{
-		obj.push_back(json_spirit::Pair("block",blockstr));
-	}
+	obj.push_back(json_spirit::Pair("blockid",static_cast<boost::int64_t>(blockid)));
 	obj.push_back(json_spirit::Pair("nonce",static_cast<boost::int64_t>(startnonce)));
 	obj.push_back(json_spirit::Pair("digest",digeststr));
 	obj.push_back(json_spirit::Pair("besthash",besthash.ToString()));
@@ -663,6 +632,10 @@ void RemoteMinerClient::SocketReceive()
 		}
 		else
 		{
+			if(len<0)
+			{
+				std::cout << "Recv socket error " << len << std::endl;
+			}
 			Disconnect();
 		}
 	}
@@ -679,17 +652,18 @@ void RemoteMinerClient::SocketSend()
 		}
 		else
 		{
+			std::cout << "Send socket error " << len << std::endl;
 			Disconnect();
 		}
 	}
 }
 
-const bool RemoteMinerClient::Update()
+const bool RemoteMinerClient::Update(const int ms)
 {
 	if(IsConnected())
 	{
 		m_timeval.tv_sec=0;
-		m_timeval.tv_usec=0;
+		m_timeval.tv_usec=ms*1000;
 
 		FD_ZERO(&m_readfs);
 		FD_ZERO(&m_writefs);

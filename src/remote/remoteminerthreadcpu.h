@@ -16,28 +16,35 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 **/
 
-#ifndef _remote_cuda_shared_
-#define _remote_cuda_shared_
+#ifndef _remoteminer_thread_cpu_
+#define _remoteminer_thread_cpu_
 
-#ifdef _BITCOIN_MINER_CUDA_
+#include "remoteminerthread.h"
 
-typedef struct
+class RemoteMinerThreadCPU:public RemoteMinerThread
 {
-	unsigned int m_AH[8];
-	unsigned int m_merkle;
-	unsigned int m_ntime;
-	unsigned int m_nbits;
-	unsigned int m_nonce;
-}remote_cuda_in;
+public:
+	RemoteMinerThreadCPU();
+	~RemoteMinerThreadCPU();
 
-typedef struct
-{
-	unsigned int m_bestnonce;
-	unsigned int m_bestAH[8];
-}remote_cuda_out;
+	virtual const bool Start()
+	{
+		m_threaddata.m_done=false;
+		m_threaddata.m_havework=false;
+		m_threaddata.m_generate=true;
+		m_threaddata.m_nextblock.m_blockid=0;
+		FreeMetaHashPointers();
+		if(!CreateThread(RemoteMinerThreadCPU::Run,&m_threaddata))
+		{
+			m_threaddata.m_done=true;
+			return false;
+		}
+		return true;
+	}
 
-void remote_cuda_process_helper(remote_cuda_in *in, remote_cuda_out *out, unsigned char *metahash, const unsigned int loops, const unsigned int bits, const int grid, const int threads);
+private:
+	static void Run(void *arg);
 
-#endif	// _BITCOIN_MINER_CUDA_
+};
 
-#endif	// _remote_cuda_shared_
+#endif	// _remoteminer_thread_cpu_

@@ -18,7 +18,8 @@
 
 #include "remote/remotebitcoinheaders.h"
 #include "remote/remoteminerclient.h"
-#include "remote/remoteminerclientcuda.h"
+
+#include <sstream>
 
 bool fTestNet=false;
 std::map<std::string,std::string> mapArgs;
@@ -56,6 +57,7 @@ int main(int argc, char *argv[])
 	std::string port("8335");
 	std::string password("");
 	std::string address("");
+	int threadcount=1;
 
 	ParseParameters(argc,argv);
 
@@ -81,18 +83,21 @@ int main(int argc, char *argv[])
 			address="";
 		}
 	}
-
-
-#if  defined(_BITCOIN_MINER_CUDA_)
-	RemoteMinerClientCUDA client;
-#elif defined(_BITCOIN_MINER_OPENCL_)
-	RemoteMinerClientOpenCL client;
-#else
-	RemoteMinerClient client;
+	if(mapArgs.count("-threads")>0)
+	{
+		std::istringstream istr(mapArgs["-threads"]);
+		istr >> threadcount;
+	}
+	else
+	{
+#if !defined(_BITCOIN_MINER_CUDA_) && !defined(_BITCOIN_MINER_OPENCL_)
+		threadcount=boost::thread::hardware_concurrency();
 #endif
+	}
 
-	client.Run(server,port,password,address);
+	RemoteMinerClient client;
 
+	client.Run(server,port,password,address,threadcount);
 
 	return 0;
 }
