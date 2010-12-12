@@ -13,6 +13,7 @@ SET(BITCOIN_REMOTE_MINER_SRC
 	${CMAKE_SOURCE_DIR}/src/remote/base64.c
 	${CMAKE_SOURCE_DIR}/src/remote/remoteminerclient.cpp
 	${CMAKE_SOURCE_DIR}/src/remote/remoteminermessage.cpp
+	${CMAKE_SOURCE_DIR}/src/remote/remoteminerthreadcpu.cpp
 )
 
 SET(BITCOIN_REMOTE_MINER_CUDA_SRC
