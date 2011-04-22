@@ -275,6 +275,11 @@ void RemoteMinerClient::HandleMessage(const RemoteMinerMessage &message)
 			{
 				std::cout << "Distribution type : " << tval.get_str() << std::endl;
 			}
+			tval=json_spirit::find_value(message.GetValue().get_obj(),"distributionpercent");
+			if(tval.type()==json_spirit::real_type)
+			{
+				std::cout << "Distribution percent : " << tval.get_real() << std::endl;
+			}
 		}
 		else if(tval.get_int()==RemoteMinerMessage::MESSAGE_TYPE_SERVERSENDWORK)
 		{

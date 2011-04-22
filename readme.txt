@@ -35,6 +35,11 @@ Remote miner server arguments
 	The distribution of coins with this method is based on the hashes accrued by 
 	each address against the total hashes accured by everyone.  The server will
 	save the values when it shuts down and load them back up on startup.
+
+-distributionpercent=0.0 to 1.0
+        Sets the percentage of the generated coins that will be distributed to
+        contributers. The remaining is collected by the server. The value must
+        be between 0.0 and 1.0 and default to 1.0.
 	
 -resethashescontributed
 	Resets the count of hashes contributed from each address.

@@ -425,7 +425,7 @@ void MetaHashVerifier::Step(const int hashes)
 
 
 
-BitcoinMinerRemoteServer::BitcoinMinerRemoteServer():m_bnExtraNonce(0),m_startuptime(0),m_generatedcount(0),m_distributiontype("connected")
+BitcoinMinerRemoteServer::BitcoinMinerRemoteServer():m_bnExtraNonce(0),m_startuptime(0),m_generatedcount(0),m_distributiontype("connected"),m_distributionpercent(1.0)
 {
 #ifdef _WIN32
 	if(m_wsastartup==false)
@@ -446,6 +446,14 @@ BitcoinMinerRemoteServer::BitcoinMinerRemoteServer():m_bnExtraNonce(0),m_startup
 		}
 	}
 	printf("BitcoinMinerRemoteServer distribution method %s\n",m_distributiontype.c_str());
+
+        if(mapArgs.count("-distributionpercent")>0)
+	{
+		std::istringstream istr(mapArgs["-distributionpercent"]);
+		istr >> m_distributionpercent;
+		if (m_distributionpercent < 0 || m_distributionpercent > 1.0)
+			m_distributionpercent = 1.0;
+	}
 
 	LoadContributedHashes();
 
@@ -490,7 +498,8 @@ void BitcoinMinerRemoteServer::AddDistributionFromConnected(CBlock *pblock, CBlo
 		{
 			if((*i)->GetCalculatedKHashRateFromMetaHash()>0 && GetAllClientsCalculatedKHashFromMeta()>0)
 			{
-				double khashfrac=static_cast<double>((*i)->GetCalculatedKHashRateFromMetaHash())/static_cast<double>(GetAllClientsCalculatedKHashFromMeta());
+				double rate = m_distributionpercent;
+				double khashfrac=rate*static_cast<double>((*i)->GetCalculatedKHashRateFromMetaHash())/static_cast<double>(GetAllClientsCalculatedKHashFromMeta());
 				int64 thisvalue=GetBlockValue(pindexPrev->nHeight+1, nFees)*khashfrac;
 				if(thisvalue>pblock->vtx[0].vout[0].nValue)
 				{
@@ -550,7 +559,13 @@ void BitcoinMinerRemoteServer::AddDistributionFromContributed(CBlock *pblock, CB
 				// * numerator (this clients hashes) / denominator (all clients hashes)
 				thisvaluebn*=CBigNum((*i).second);
 				thisvaluebn/=CBigNum(denominator);
+				thisvaluebn*=CBigNum(static_cast<uint64>(1000 * m_distributionpercent));
+				thisvaluebn/=CBigNum(1000);
 
+				// Round
+				CBigNum x(100000);
+ 				CBigNum y = thisvaluebn%x;
+				thisvaluebn-=y;
 				// TODO - find better way to go from CBigNum to int64
 				int64 thisvalue;
 				std::istringstream istr(thisvaluebn.ToString());
@@ -559,7 +574,6 @@ void BitcoinMinerRemoteServer::AddDistributionFromContributed(CBlock *pblock, CB
 				{
 					thisvalue=pblock->vtx[0].vout[0].nValue;
 				}
-
 				pblock->vtx[0].vout[0].nValue-=thisvalue;
 
 				CTxOut out;
@@ -990,6 +1004,8 @@ void BitcoinMinerRemoteServer::SendServerHello(RemoteClientConnection *client, c
 	obj.push_back(json_spirit::Pair("serverversion",BITCOINMINERREMOTE_SERVERVERSIONSTR));
 	obj.push_back(json_spirit::Pair("metahashrate",static_cast<int>(metahashrate)));
 	obj.push_back(json_spirit::Pair("distributiontype",m_distributiontype));
+	obj.push_back(json_spirit::Pair("distributionpercent",m_distributionpercent));
+
 	client->SendMessage(RemoteMinerMessage(obj));
 }
 

@@ -240,6 +240,7 @@ private:
 #ifdef _WIN32
 	static bool m_wsastartup;
 #endif
+	double m_distributionpercent;
 	std::string m_distributiontype;
 	std::vector<SOCKET> m_listensockets;
 	std::vector<RemoteClientConnection *> m_clients;
