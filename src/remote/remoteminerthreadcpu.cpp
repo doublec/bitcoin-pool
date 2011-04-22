@@ -18,6 +18,8 @@
 
 #include "remoteminerthreadcpu.h"
 
+extern void DoubleBlockSHA256(const void* pin, void* pout, const void* pinit, unsigned int hash[8][32], const void* init2);
+
 RemoteMinerThreadCPU::RemoteMinerThreadCPU()
 {
 }
@@ -49,12 +51,15 @@ void RemoteMinerThreadCPU::Run(void *arg)
 
 	uint256 besthash=~(uint256(0));
 	unsigned int besthashnonce=0;
-
-	// TODO - pointer
 	unsigned char *metahash=0;
 	unsigned int metahashsize=0;
 	unsigned int metahashpos=0;
 	unsigned int metahashstartnonce=0;
+
+#ifdef FOURWAYSSE2
+	unsigned int fourwayhashbuf[9][32];
+	unsigned int (&fourwayhash)[9][32]=*alignup<16>(&fourwayhashbuf);
+#endif
 
 	SetThreadPriority(THREAD_PRIORITY_LOWEST);
 
@@ -94,6 +99,91 @@ void RemoteMinerThreadCPU::Run(void *arg)
 				}
 			}
 
+#ifdef FOURWAYSSE2
+			DoubleBlockSHA256(blockbuffptr,&temphash,midbuffptr,fourwayhash,SHA256InitState);
+
+			for(int i=0; i<32; i++)
+			{
+				metahash[metahashpos++]=((unsigned char *)(&fourwayhash[0][i]))[0];
+
+				if(fourwayhash[7][i]==0)
+				{
+					for (int j = 0; j < sizeof(hash)/4; j++)
+					{
+						((unsigned int*)&hash)[j] = CryptoPP::ByteReverse(fourwayhash[j][i]);
+					}
+					
+					if(hash<=currenttarget)
+					{
+						CRITICAL_BLOCK(td->m_cs);
+						td->m_foundhashes.push_back(foundhash(currentblockid,(*nonce)));
+					}
+
+					if(hash<besthash)
+					{
+						besthash=hash;
+						besthashnonce=(*nonce);
+					}
+				}
+				// hash isn't bytereversed yet, but besthash already is
+				else if(CryptoPP::ByteReverse(fourwayhash[7][i])<=((unsigned int *)&besthash)[7])
+				{
+					for (int j = 0; j < sizeof(hash)/4; j++)
+					{
+						((unsigned int*)&hash)[j] = CryptoPP::ByteReverse(fourwayhash[j][i]);
+					}
+					if(hash<besthash)
+					{
+						besthash=hash;
+						besthashnonce=(*nonce);
+					}
+				}
+
+				(*nonce)++;
+
+				if(metahashpos>=metahashsize)
+				{
+
+					{
+						CRITICAL_BLOCK(td->m_cs);
+
+						td->m_hashresults.push_back(hashresult(currentblockid,besthash,besthashnonce,metahash,metahashstartnonce));
+
+						if(td->m_metahashptrs.size()>0)
+						{
+							metahash=td->m_metahashptrs[td->m_metahashptrs.size()-1];
+							td->m_metahashptrs.erase(td->m_metahashptrs.end()-1);
+						}
+						else
+						{
+							metahash=new unsigned char[metahashsize];
+						}
+					}
+
+					metahashpos=0;
+					metahashstartnonce=(*nonce);
+					besthash=~(uint256(0));
+					besthashnonce=0;
+
+					{
+						CRITICAL_BLOCK(td->m_cs);
+						if(currentblockid!=td->m_nextblock.m_blockid)
+						{
+							currenttarget=td->m_nextblock.m_target;
+							currentblockid=td->m_nextblock.m_blockid;
+							::memcpy(midbuffptr,&td->m_nextblock.m_midstate[0],32);
+							::memcpy(blockbuffptr,&td->m_nextblock.m_block[0],64);
+							metahashpos=0;
+							metahashstartnonce=0;
+							(*nonce)=0;
+						}
+					}
+
+				}
+
+			}
+#else	// FOURWAYSSE2
+
 			// do 10000 hashes at a time
 			for(unsigned int i=0; i<10000 && metahashpos<metahashsize; i++)
 			{
@@ -102,7 +192,7 @@ void RemoteMinerThreadCPU::Run(void *arg)
 
 				metahash[metahashpos++]=((unsigned char *)&hash)[0];
 
-				if((((unsigned short*)&hash)[14]==0) && (((unsigned short*)&hash)[15]==0))
+				if((((unsigned int*)&hash)[7]==0))
 				{
 					for (int i = 0; i < sizeof(hash)/4; i++)
 					{
@@ -143,7 +233,7 @@ void RemoteMinerThreadCPU::Run(void *arg)
 
 				{
 					CRITICAL_BLOCK(td->m_cs);
-					// TODO - fix
+
 					td->m_hashresults.push_back(hashresult(currentblockid,besthash,besthashnonce,metahash,metahashstartnonce));
 
 					if(td->m_metahashptrs.size()>0)
@@ -177,6 +267,7 @@ void RemoteMinerThreadCPU::Run(void *arg)
 				}
 
 			}
+#endif	// FOURWAYSSE2
 
 		}
 		else

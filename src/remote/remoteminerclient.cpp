@@ -18,7 +18,7 @@
 
 #include "remoteminerclient.h"
 #include "remoteminermessage.h"
-#include "base64.h"
+#include "../minercommon/base64.h"
 
 #include <iostream>
 #include <string>
@@ -234,6 +234,22 @@ const bool RemoteMinerClient::FindGenerationAddressInBlock(const uint160 address
 	return false;
 }
 
+const std::string RemoteMinerClient::GetTimeStr(const time_t timet) const
+{
+	std::vector<char> buff(128,0);
+	struct tm timetm;
+	timetm=*gmtime(&timet);
+	size_t len=strftime(&buff[0],buff.size(),"%Y-%m-%d %H:%M:%S",&timetm);
+	if(len>0)
+	{
+		return std::string(buff.begin(),buff.begin()+len);
+	}
+	else
+	{
+		return std::string("");
+	}
+}
+
 void RemoteMinerClient::HandleMessage(const RemoteMinerMessage &message)
 {
 	json_spirit::Value tval=json_spirit::find_value(message.GetValue().get_obj(),"type");
@@ -246,14 +262,7 @@ void RemoteMinerClient::HandleMessage(const RemoteMinerMessage &message)
 			tval=json_spirit::find_value(message.GetValue().get_obj(),"metahashrate");
 			if(tval.type()==json_spirit::int_type)
 			{
-				//m_metahashstartblock.clear();
-				//m_metahashstartblock.insert(m_metahashstartblock.end(),128,0);
-				//m_metahash.clear();
-				//m_metahash.resize(tval.get_int());
-				//m_metahashpos=0;
-
 				m_minerthreads.SetMetaHashSize(tval.get_int());
-				//m_minerthread.SetMetaHashSize(tval.get_int());
 				m_metahashsize=tval.get_int();
 			}
 			tval=json_spirit::find_value(message.GetValue().get_obj(),"serverversion");
@@ -312,23 +321,8 @@ void RemoteMinerClient::HandleMessage(const RemoteMinerMessage &message)
 				}
 			}
 
-			//m_minerthread.SetNextBlock(nextblockid,nexttarget,nextblock,nextmidstate);
 			m_minerthreads.SetNextBlock(nextblockid,nexttarget,nextblock,nextmidstate);
 
-			/*
-			if(m_havework==false)
-			{
-				m_currenttarget=m_nexttarget;
-				m_currentblockid=m_nextblockid;
-				::memcpy(m_midbuffptr,&m_nextmidstate[0],32);
-				::memcpy(m_blockbuffptr,&m_nextblock[0],64);
-				m_metahashstartblock=m_nextblock;
-				m_metahashpos=0;
-				m_metahashstartnonce=0;
-				(*m_nonce)=0;
-			}
-			m_havework=true;
-			*/
 		}
 		else if(tval.get_int()==RemoteMinerMessage::MESSAGE_TYPE_SERVERSTATUS)
 		{
@@ -377,7 +371,8 @@ void RemoteMinerClient::HandleMessage(const RemoteMinerMessage &message)
 				blocksgenerated=tval.get_int();
 			}
 			
-			//std::cout << "Server Status : " << clients << " clients, " << khashmeta << " khash/s m " << khashbest << " khash/s b  " << std::endl;
+			std::cout << std::endl;
+			std::cout << GetTimeStr(time(0)) << std::endl;
 			std::cout << "Server Status : " << clients << " clients, " << khashmeta << " khash/s" << std::endl;
 			std::cout << blocksgenerated << " blocks generated since " << startuptimestr << " UTC" << std::endl;
 			std::cout << "Server reports my khash/s as " << clientkhashmeta << std::endl;
@@ -425,7 +420,6 @@ const std::string RemoteMinerClient::ReverseAddressHex(const uint160 address) co
 void RemoteMinerClient::Run(const std::string &server, const std::string &port, const std::string &password, const std::string &address, const int threadcount)
 {
 	int64 lastrequestedwork=GetTimeMillis();
-	//std::vector<unsigned char> mhdigest(SHA256_DIGEST_LENGTH,0);
 
 	//debug
 	int64 starttime=0;
@@ -438,18 +432,16 @@ void RemoteMinerClient::Run(const std::string &server, const std::string &port, 
 	{
 		if(IsConnected()==false)
 		{
-			//m_minerthread.Stop();
 			m_minerthreads.Stop();
 			std::cout << "Attempting to connect to " << server << ":" << port << std::endl;
 			Sleep(1000);
 			if(Connect(server,port))
 			{
-				//m_minerthread.Start();
 				m_minerthreads.Start(new threadtype);
 				m_gotserverhello=false;
-				//m_havework=false;
 				std::cout << "Connected to " << server << ":" << port << std::endl;
 				SendClientHello(password,address);
+				lastrequestedwork=GetTimeMillis();
 
 				//debug
 				starttime=GetTimeMillis();
@@ -457,81 +449,68 @@ void RemoteMinerClient::Run(const std::string &server, const std::string &port, 
 		}
 		else
 		{
-			//if(m_gotserverhello==false)
+			Update();
+
+			while(MessageReady() && !ProtocolError())
 			{
-				Update();
-				while(MessageReady() && !ProtocolError())
+				RemoteMinerMessage message;
+				if(ReceiveMessage(message))
 				{
-					RemoteMinerMessage message;
-					if(ReceiveMessage(message))
+					if(message.GetValue().type()==json_spirit::obj_type)
 					{
-						if(message.GetValue().type()==json_spirit::obj_type)
-						{
-							HandleMessage(message);
-						}
-						else
-						{
-							std::cout << "Unexpected json type sent by server.  Disconnecting." << std::endl;
-							Disconnect();
-						}
+						HandleMessage(message);
 					}
-				}
-				if(ProtocolError())
-				{
-					std::cout << "Protocol error.  Disconnecting." << std::endl;
-					Disconnect();
+					else
+					{
+						std::cout << "Unexpected json type sent by server.  Disconnecting." << std::endl;
+						Disconnect();
+					}
 				}
 			}
 
-			//if(m_minerthread.HasWork())
+			if(ProtocolError())
 			{
-				//if(m_minerthread.Done()==true)
-				if(m_minerthreads.RunningThreadCount()<threadcount)
-				{
-					//m_minerthread.Start();
-					m_minerthreads.Start(new threadtype);
-				}
+				std::cout << "Protocol error.  Disconnecting." << std::endl;
+				Disconnect();
+			}
 
-				//if(m_minerthread.HaveFoundHash())
-				if(m_minerthreads.HaveFoundHash())
+			if(m_minerthreads.RunningThreadCount()<threadcount)
+			{
+				m_minerthreads.Start(new threadtype);
+			}
+
+			if(m_minerthreads.HaveFoundHash())
+			{
+				std::cout << "Found Hash!" << std::endl;
+				RemoteMinerThread::foundhash fhash;
+				m_minerthreads.GetFoundHash(fhash);
+				SendFoundHash(fhash.m_blockid,fhash.m_nonce);
+				SendWorkRequest();
+			}
+
+			while(m_minerthreads.HaveHashResult())
+			{
+				RemoteMinerThread::hashresult hresult;
+
+				m_minerthreads.GetHashResult(hresult);
+
+				SendMetaHash(hresult.m_blockid,hresult.m_metahashstartnonce,hresult.m_metahashdigest,hresult.m_besthash,hresult.m_besthashnonce);
+
+				//debug
+				//std::cout << "sent result " << hresult.m_blockid << " " << hresult.m_metahashstartnonce << " " << hresult.m_besthashnonce << std::endl;
+				hashcount+=m_metahashsize;
+
+				if(hresult.m_metahashstartnonce>4000000000 && (lastrequestedwork+5000)<GetTimeMillis())
 				{
-					std::cout << "Found Hash!" << std::endl;
-					RemoteMinerThread::foundhash fhash;
-					//m_minerthread.GetFoundHash(fhash);
-					m_minerthreads.GetFoundHash(fhash);
-					SendFoundHash(fhash.m_blockid,fhash.m_nonce);
+					std::cout << "Requesting a new block " << GetTimeMillis() << std::endl;
 					SendWorkRequest();
-				}
-
-				//while(m_minerthread.HaveHashResult())
-				while(m_minerthreads.HaveHashResult())
-				{
-					RemoteMinerThread::hashresult hresult;
-					//m_minerthread.GetHashResult(hresult);
-					m_minerthreads.GetHashResult(hresult);
-
-					//SHA256(hresult.m_metahashptr,m_metahashsize,&mhdigest[0]);
-
-					SendMetaHash(hresult.m_blockid,hresult.m_metahashstartnonce,hresult.m_metahashdigest,hresult.m_besthash,hresult.m_besthashnonce);
-
-					//m_minerthread.AddMetaHashPointer(hresult.m_metahashptr);
-
-					//debug
-					//std::cout << "sent result " << hresult.m_blockid << " " << hresult.m_metahashstartnonce << " " << hresult.m_besthashnonce << std::endl;
-					hashcount+=m_metahashsize;
-
-					if(hresult.m_metahashstartnonce>4000000000 && (lastrequestedwork+5000)<GetTimeMillis())
-					{
-						std::cout << "Requesting a new block " << GetTimeMillis() << std::endl;
-						SendWorkRequest();
-						lastrequestedwork=GetTimeMillis();
-					}
+					lastrequestedwork=GetTimeMillis();
 				}
 			}
-			//else
+
 			if(m_minerthreads.NeedWork())
 			{
-				if((lastrequestedwork+5000)<GetTimeMillis())
+				if((lastrequestedwork+6000)<GetTimeMillis())
 				{
 					std::cout << "Requesting a new block " << GetTimeMillis() << std::endl;
 					SendWorkRequest();

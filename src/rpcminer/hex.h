@@ -16,28 +16,18 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 **/
 
-#ifndef _opencl_shared_
-#define _opencl_shared_
+#ifndef _hex_funcs_
+#define _hex_funcs_
 
-#ifdef _BITCOIN_MINER_OPENCL_
+#include <string>
+#include <vector>
 
-#include <CL/opencl.h>
-
-typedef struct
+namespace Hex
 {
-	cl_uint m_AH[8];
-	cl_uint m_merkle;
-	cl_uint m_ntime;
-	cl_uint m_nbits;
-	cl_uint m_nonce;
-}opencl_in;
+	
+const bool Encode(const std::vector<unsigned char> &data, std::string &encoded);
+const bool Decode(const std::string &encoded, std::vector<unsigned char> &data);
+		
+};
 
-typedef struct
-{
-	cl_uint m_bestnonce;
-	//cl_uint m_bestg;
-}opencl_out;
-
-#endif	// _BITCOIN_MINER_OPENCL_
-
-#endif	// _opencl_shared_
+#endif _hex_funcs_

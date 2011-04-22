@@ -472,7 +472,7 @@ void Unserialize_impl(Stream& is, std::vector<T, A>& v, int nType, int nVersion,
     unsigned int i = 0;
     while (i < nSize)
     {
-        unsigned int blk = min(nSize - i, (unsigned int)(1 + 4999999 / sizeof(T)));
+        unsigned int blk = (std::min)(nSize - i, (unsigned int)(1 + 4999999 / sizeof(T)));
         v.resize(i + blk);
         is.read((char*)&v[i], blk * sizeof(T));
         i += blk;
@@ -585,7 +585,7 @@ void Unserialize(Stream& is, std::map<K, T, Pred, A>& m, int nType, int nVersion
     typename std::map<K, T, Pred, A>::iterator mi = m.begin();
     for (unsigned int i = 0; i < nSize; i++)
     {
-        pair<K, T> item;
+        std::pair<K, T> item;
         Unserialize(is, item, nType, nVersion);
         mi = m.insert(mi, item);
     }
@@ -697,7 +697,7 @@ struct secure_allocator : public std::allocator<T>
     {
         if (p != NULL)
             memset(p, 0, sizeof(T) * n);
-        allocator<T>::deallocate(p, n);
+		std::allocator<T>::deallocate(p, n);
     }
 };
 

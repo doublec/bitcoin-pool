@@ -16,11 +16,13 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 **/
 
-__constant const uint f1=0xFF000000;
-__constant const uint f2=0x00FF0000;
-__constant const uint f3=0x0000FF00;
-__constant const uint f4=0x000000FF;
-__constant const uint f5=0xFFFFFFFF;
+#pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable 
+
+__constant uint f1=0xFF000000;
+__constant uint f2=0x00FF0000;
+__constant uint f3=0x0000FF00;
+__constant uint f4=0x000000FF;
+__constant uint f5=0xFFFFFFFF;
 
 typedef struct
 {
@@ -35,10 +37,6 @@ typedef struct
 {
 	uint m_bestnonce;
 	uint m_bestAH[8];
-//debug
-	uint m_nonce;
-	uint m_myid;
-	uint m_loops;
 }remote_opencl_out;
 
 #define byteswap(x) (((x>>24) & f4) | ((x>>8) & f3) | ((x<<8) & f2) | ((x<<24) & f1))
@@ -296,10 +294,5 @@ __kernel void opencl_process(__global remote_opencl_in *in, __global remote_open
     {
 		out[myid].m_bestAH[i]=bestAH[i];
     }
-    
-    //debug
-    out[myid].m_myid=myid;
-    out[myid].m_loops=loops;
-    out[myid].m_nonce=nonce;
 
 }

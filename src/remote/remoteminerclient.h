@@ -27,7 +27,7 @@
 	#include <ws2tcpip.h>
 #endif
 
-#include "remotebitcoinheaders.h"
+#include "../minercommon/minerheaders.h"
 #include "remoteminermessage.h"
 #include "remoteminerthreadcpu.h"
 #include "remoteminerthreadgpu.h"
@@ -74,6 +74,8 @@ protected:
 
 	void SaveBlock(json_spirit::Object &block, const std::string &filename);
 
+	const std::string GetTimeStr(const time_t timet) const;
+
 	uint160 m_address160;
 	bool m_gotserverhello;
 	SOCKET m_socket;
@@ -84,16 +86,6 @@ protected:
 	fd_set m_writefs;
 	struct timeval m_timeval;
 	unsigned int m_metahashsize;
-
-/*
-#if  defined(_BITCOIN_MINER_CUDA_)
-	RemoteMinerThreadCUDA m_minerthread;
-#elif defined(_BITCOIN_MINER_OPENCL_)
-	RemoteMinerThreadOpenCL m_minerthread;
-#else
-	RemoteMinerThreadCPU m_minerthread;
-#endif
-	*/
 
 #if defined(_BITCOIN_MINER_CUDA_) || defined(_BITCOIN_MINER_OPENCL_)
 	typedef RemoteMinerThreadGPU threadtype;

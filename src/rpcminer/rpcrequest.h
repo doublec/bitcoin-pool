@@ -16,27 +16,31 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 **/
 
-#ifndef _remote_bitcoin_headers_
-#define _remote_bitcoin_headers_
+#ifndef _rpc_request_
+#define _rpc_request_
 
-#ifdef _WIN32
-#include <winsock2.h>
-#include <windows.h>
-#endif
-#include <boost/thread.hpp>
-#include <boost/date_time/posix_time/posix_time_types.hpp>
-#include <boost/date_time/gregorian/gregorian_types.hpp>
-#include <cassert>
-#include <map>
-#include <vector>
 #include <string>
-#include <openssl/sha.h>
-#include <openssl/ripemd.h>
-#include "../serialize.h"
-#include "../uint256.h"
-#include "../util.h"
-#include "../bignum.h"
-#include "../base58.h"
-#include "../strlcpy.h"
+#include <vector>
 
-#endif	// _remote_bitcoin_headers_
+class RPCRequest
+{
+public:
+	RPCRequest(const std::string &url, const std::string &user, const std::string &password);
+	~RPCRequest();
+
+	const bool DoRequest(const std::string &data, std::string &result);
+
+private:
+
+	static size_t WriteData(void *ptr, size_t size, size_t nmemb, void *user_data);
+	static size_t ReadData(void *ptr, size_t size, size_t nmemb, void *user_data);
+
+	std::string m_url;
+	std::string m_user;
+	std::string m_password;
+
+	std::vector<char> m_writebuff;
+	std::vector<char> m_readbuff;
+};
+
+#endif	// _rpc_request_

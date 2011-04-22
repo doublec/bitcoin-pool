@@ -38,6 +38,7 @@ const std::vector<char> RemoteMinerMessage::GetWireData() const
 	char flags=0;
 	std::string jsonstr=json_spirit::write(m_value);
 	std::vector<char> data;
+	data.reserve(jsonstr.size()+4);
 	data.push_back(REMOTEMINER_PROTOCOL_VERSION);			// protocol version;
 
 	if(jsonstr.size()>=65535)
@@ -120,6 +121,7 @@ void RemoteMinerMessage::PushWireData(std::vector<char> &buffer) const
 {
 	char flags=0;
 	std::string jsonstr=json_spirit::write(m_value);
+	buffer.reserve(buffer.size()+jsonstr.size()+4);
 
 	buffer.push_back(REMOTEMINER_PROTOCOL_VERSION);
 
@@ -133,7 +135,7 @@ void RemoteMinerMessage::PushWireData(std::vector<char> &buffer) const
 	if((flags & FLAG_4BYTESIZE)!=FLAG_4BYTESIZE)
 	{
 		buffer.push_back((jsonstr.size() >> 8) & 0xff);			// size
-		buffer.push_back(jsonstr.size() & 0xff);					// size
+		buffer.push_back(jsonstr.size() & 0xff);				// size
 	}
 	else
 	{

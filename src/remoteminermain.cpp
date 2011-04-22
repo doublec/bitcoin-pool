@@ -16,7 +16,7 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 **/
 
-#include "remote/remotebitcoinheaders.h"
+#include "minercommon/minerheaders.h"
 #include "remote/remoteminerclient.h"
 
 #include <sstream>
@@ -53,6 +53,7 @@ void ParseParameters(int argc, char* argv[])
 
 int main(int argc, char *argv[])
 {
+
 	std::string server("127.0.0.1");
 	std::string port("8335");
 	std::string password("");

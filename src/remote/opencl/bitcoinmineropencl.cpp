@@ -22,7 +22,7 @@
 
 #include "bitcoinmineropencl.h"
 #include "openclshared.h"
-#include "../remotebitcoinheaders.h"		// util.h for int64
+#include "../../minercommon/minerheaders.h"		// util.h for int64
 #include <limits>
 #include <iostream>
 

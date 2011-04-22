@@ -36,10 +36,6 @@ typedef struct
 {
 	cl_uint m_bestnonce;
 	cl_uint m_bestAH[8];
-//debug
-	cl_uint m_nonce;
-	cl_uint m_myid;
-	cl_uint m_loops;
 }remote_opencl_out;
 
 void remote_cuda_process_helper(remote_opencl_in *in, remote_opencl_out *out, unsigned char *metahash, const unsigned int loops, const unsigned int bits, const int grid, const int threads);

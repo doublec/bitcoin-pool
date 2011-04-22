@@ -41,8 +41,9 @@ Remote miner server arguments
 
 
 *********************
-* REMOTE MINER CPU CLIENT
+* REMOTE MINER CLIENT 
 *********************
+(ARGUMENTS MAY BE COMBINED WITH CUDA/OPENCL ARGUMENTS)
 Remote miner client arguments
 
 -server=x.x.x.x
@@ -65,7 +66,38 @@ Remote miner client arguments
 
 -threads=x
 	Start this number of miner threads.  The default value is the number of cores
-	on your processor if using the CPU miner, or 1 if using a GPU miner.
+	on your processor if using a CPU miner, or 1 if using a GPU miner.
+
+
+*********************
+* RPC MINER CLIENT 
+*********************
+(ARGUMENTS MAY BE COMBINED WITH CUDA/OPENCL ARGUMENTS)
+RPC miner client arguments
+
+-url=http://example.com:8332
+	The URL of the RPC server.
+	
+-user=username
+	The username used to connect to the RPC server.
+	
+-password=password
+	The password used to connect to the RPC server.
+	
+-threads=x
+	Start this number of miner threads.  The default value is the number of cores
+	on your processor if using a CPU miner, or 1 if using a GPU miner.
+	
+-workrefreshms=xxxx
+	Work will be refreshed from the server this often.  Each thread that is 
+	started needs its own work.  The default value is 4000ms.  If you have a
+	fast miner, or are using lots of threads, you might want to reduce this.
+
+-statsurl=http://example.com/stats/json
+	The URL of a server that will respond with a json object of the server stats.
+	Currently, only slush's server stats are available.  The stats will be
+	printed by the client every minute.  Not specifying a url will result in no
+	stats being displayed.
 
 
 *********************
@@ -78,10 +110,10 @@ CUDA miner arguments
 	just use -gpu without =X it will pick the device with the max GFlops.
 
 -aggression=X
-	Specifies how many hashes (2^X) per kernel thread will be calculated.  
-	Default is 6.  It starts at 1 and goes to 32, with each successive number 
-	meaning double the number of hashes.  Sane values are 1 to 12 or maybe 14 if 
-	you have some super card.
+	Specifies how many hashes (2^(X-1)) per kernel thread will be calculated.  
+	The default is 6.  It starts at 1 and goes to 32, with each successive
+	number meaning double the number of hashes.  Sane values are 1 to 12 or
+	maybe 14 if you have some super card.
 
 -gpugrid=X
 	Specifies what the grid size of the kernel should be.  Useful for fine tuning 
@@ -102,7 +134,8 @@ CUDA miner arguments
 *********************
 * OPENCL MINER
 *********************
-Make sure bitcoinmineropencl.cl is in the bitcoin working directory.
+Make sure bitcoinmineropencl.cl is in the bitcoin working directory for the server and 
+rpc miner, and remotebitcoinmineropencl.cl for the remote miner.
 
 OpenCL miner arguments
 
@@ -115,10 +148,10 @@ OpenCL miner arguments
 	device found.
 
 -aggression=X
-	Specifies how many hashes (2^X) per kernel thread will be calculated.  
-	Default is 6.  It starts at 1 and goes to 32, with each successive number 
-	meaning double the number of hashes.  Sane values are 1 to 12 or maybe 14 if 
-	you have some super card.
+	Specifies how many hashes (2^(X-1)) per kernel thread will be calculated.  
+	The default is 6.  It starts at 1 and goes to 32, with each successive
+	number meaning double the number of hashes.  Sane values are 1 to 12 or
+	maybe 14 if you have some super card.
 
 -gpugrid=X
 	Specifies what the grid size of the kernel should be.  Useful for fine tuning 

@@ -21,8 +21,7 @@
 
 #ifdef _BITCOIN_MINER_CUDA_
 
-#include "../headers.h"
-#include "../gpucommon/gpucommon.h"
+#include "../gpucommon/gpurunner.h"
 #include "cudashared.h"
 
 class CUDARunner:public GPURunner<unsigned long,int>

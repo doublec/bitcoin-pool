@@ -16,11 +16,24 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 **/
 
-__constant const uint f1=0xFF000000;
-__constant const uint f2=0x00FF0000;
-__constant const uint f3=0x0000FF00;
-__constant const uint f4=0x000000FF;
-__constant const uint f5=0xFFFFFFFF;
+#ifdef AMDMEDIAOPS
+#pragma OPENCL EXTENSION cl_amd_media_ops : enable
+#define rotateright(x,bits) amd_bitalign(x,x,bits)
+#else
+#define rotateright(x,bits) (rotate(x,(uint)(32-bits)))
+#endif
+
+#ifdef WORKGROUPSIZE
+#define WORKGROUP __attribute__((reqd_work_group_size(WORKGROUPSIZE, 1, 1)))
+#else
+#define WORKGROUP
+#endif
+
+//__constant uint f1=0xFF000000;
+//__constant uint f2=0x00FF0000;
+//__constant uint f3=0x0000FF00;
+//__constant uint f4=0x000000FF;
+__constant uint f5=0xFFFFFFFF;
 
 typedef struct
 {
@@ -34,15 +47,14 @@ typedef struct
 typedef struct
 {
 	uint m_bestnonce;
-	uint m_bestg;
+//	uint m_bestg;
 }opencl_out;
 
-#define byteswap(x) (((x>>24) & f4) | ((x>>8) & f3) | ((x<<8) & f2) | ((x<<24) & f1))
-#define rotateright(x,bits) (rotate(x,32-bits))
+//#define byteswap(x) (((x>>24) & f4) | ((x>>8) & f3) | ((x<<8) & f2) | ((x<<24) & f1))
 #define R(x) (work[x] = (rotateright(work[x-2],17)^rotateright(work[x-2],19)^((work[x-2]&f5)>>10)) + work[x -  7] + (rotateright(work[x-15],7)^rotateright(work[x-15],18)^((work[x-15]&f5)>>3)) + work[x - 16])
 #define sharound(a,b,c,d,e,f,g,h,x,K) {t1=h+(rotateright(e,6)^rotateright(e,11)^rotateright(e,25))+(g^(e&(f^g)))+K+x; t2=(rotateright(a,2)^rotateright(a,13)^rotateright(a,22))+((a&b)|(c&(a|b))); d+=t1; h=t1+t2;}
 
-__kernel void opencl_process(__global opencl_in *in, __global opencl_out *out, const uint loops, const uint bits)
+__kernel __attribute__((vec_type_hint(uint))) WORKGROUP void opencl_process(__global opencl_in *in, __global opencl_out *out, const uint loops, const uint bits)
 {
 
     uint work[64];
@@ -51,7 +63,7 @@ __kernel void opencl_process(__global opencl_in *in, __global opencl_out *out, c
 	const uint nonce=in->m_nonce + (myid << bits);
 	uint t1,t2;
 	uint bestnonce=0;
-	uint bestg=~0;
+	//uint bestg=~0;
 	
 	// the first 3 rounds we can do outside the loop because they depend on work[0] through work[2] which won't change
 	uint A1,B1,C1,D1,E1,F1,G1,H1;
@@ -82,7 +94,7 @@ __kernel void opencl_process(__global opencl_in *in, __global opencl_out *out, c
 		work[0]=in->m_merkle;
 		work[1]=in->m_ntime;
 		work[2]=in->m_nbits;
-		work[3]=byteswap(nonce+it);
+		work[3]=nonce+it;
 		work[4]=0x80000000;
 		work[5]=0x00000000;
 		work[6]=0x00000000;
@@ -255,19 +267,20 @@ __kernel void opencl_process(__global opencl_in *in, __global opencl_out *out, c
 		//sharound(C,D,E,F,G,H,A,B,R(62),0xBEF9A3F7);
 		//sharound(B,C,D,E,F,G,H,A,R(63),0xC67178F2);
 
-		G+=0x1f83d9ab;
-		G=byteswap(G);
+		//G+=0x1f83d9ab;
+		//G=byteswap(G);
 		H+=0x5be0cd19;
 
-		if((H==0) && (G<=bestg))
+		if((H==0))// && (G<=bestg))
 		{
 			bestnonce=nonce+it;
-			bestg=G;
+			//bestg=G;
+			//out[0].m_bestnonce=nonce+it;
 		}
 
     }
     
     out[myid].m_bestnonce=bestnonce;
-    out[myid].m_bestg=bestg;
+    //out[myid].m_bestg=bestg;
 
 }
