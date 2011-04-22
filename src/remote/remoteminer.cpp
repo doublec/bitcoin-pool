@@ -739,18 +739,20 @@ const unsigned int BitcoinMinerRemoteServer::GetReceiveRate(const int sec)
 {
 	unsigned int rate=0;
 	time_t nowt=time(0);
-	for(std::map<time_t,unsigned int>::iterator i=m_receiverate.begin(); i!=m_receiverate.end(); )
+	std::vector<time_t> eraseme;
+	for(std::map<time_t,unsigned int>::iterator i=m_receiverate.begin(); i!=m_receiverate.end(); ++i)
 	{
 		if(difftime(nowt,(*i).first)<=sec)
 		{
 			rate+=(*i).second;
-			i++;
 		}
 		else
 		{
-			i=m_receiverate.erase(i);
+		        eraseme.push_back((*i).first);	
 		}
 	}
+        for(std::vector<time_t>::iterator i = eraseme.begin(); i != eraseme.end(); ++i)
+        	m_receiverate.erase(*i);
 	return rate/sec;
 }
 
@@ -758,18 +760,21 @@ const unsigned int BitcoinMinerRemoteServer::GetSendRate(const int sec)
 {
 	unsigned int rate=0;
 	time_t nowt=time(0);
-	for(std::map<time_t,unsigned int>::iterator i=m_sendrate.begin(); i!=m_sendrate.end(); )
+	std::vector<time_t> eraseme;
+	for(std::map<time_t,unsigned int>::iterator i=m_sendrate.begin(); i!=m_sendrate.end(); ++i)
 	{
 		if(difftime(nowt,(*i).first)<=sec)
 		{
 			rate+=(*i).second;
-			i++;
 		}
 		else
 		{
-			i=m_sendrate.erase(i);
+		        eraseme.push_back((*i).first);	
 		}
 	}
+        for(std::vector<time_t>::iterator i = eraseme.begin(); i != eraseme.end(); ++i)
+	        m_sendrate.erase(*i);
+
 	return rate/sec;
 }
 
@@ -988,17 +993,17 @@ void BitcoinMinerRemoteServer::SendServerStatus()
 {
 	json_spirit::Object obj;
 	obj.push_back(json_spirit::Pair("type",static_cast<int>(RemoteMinerMessage::MESSAGE_TYPE_SERVERSTATUS)));
-	obj.push_back(json_spirit::Pair("time",static_cast<int64>(time(0))));
-	obj.push_back(json_spirit::Pair("clients",static_cast<int64>(m_clients.size())));
-	obj.push_back(json_spirit::Pair("khashmeta",static_cast<int64>(GetAllClientsCalculatedKHashFromMeta())));
-	obj.push_back(json_spirit::Pair("khashbest",static_cast<int64>(GetAllClientsCalculatedKHashFromBest())));
-	obj.push_back(json_spirit::Pair("sessionstartuptime",static_cast<int64>(m_startuptime)));
-	obj.push_back(json_spirit::Pair("sessionblocksgenerated",static_cast<int64>(m_generatedcount)));
+	obj.push_back(json_spirit::Pair("time",static_cast<int64_t>(time(0))));
+	obj.push_back(json_spirit::Pair("clients",static_cast<int64_t>(m_clients.size())));
+	obj.push_back(json_spirit::Pair("khashmeta",static_cast<int64_t>(GetAllClientsCalculatedKHashFromMeta())));
+	obj.push_back(json_spirit::Pair("khashbest",static_cast<int64_t>(GetAllClientsCalculatedKHashFromBest())));
+	obj.push_back(json_spirit::Pair("sessionstartuptime",static_cast<int64_t>(m_startuptime)));
+	obj.push_back(json_spirit::Pair("sessionblocksgenerated",static_cast<int64_t>(m_generatedcount)));
 	for(std::vector<RemoteClientConnection *>::iterator i=m_clients.begin(); i!=m_clients.end(); i++)
 	{
 		json_spirit::Object messobj(obj);
-		messobj.push_back(json_spirit::Pair("yourkhashmeta",(*i)->GetCalculatedKHashRateFromMetaHash()));
-		messobj.push_back(json_spirit::Pair("yourkhashbest",(*i)->GetCalculatedKHashRateFromBestHash()));
+		messobj.push_back(json_spirit::Pair("yourkhashmeta",static_cast<int64_t>((*i)->GetCalculatedKHashRateFromMetaHash())));
+		messobj.push_back(json_spirit::Pair("yourkhashbest",static_cast<int64_t>((*i)->GetCalculatedKHashRateFromBestHash())));
 		(*i)->SendMessage(RemoteMinerMessage(messobj));
 	}
 }
@@ -1160,7 +1165,7 @@ void BitcoinMinerRemoteServer::SendWork(RemoteClientConnection *client)
 	EncodeBase64(midbuff,midstatestr);
 
 	json_spirit::Object obj;
-	obj.push_back(json_spirit::Pair("blockid",client->NextBlockID()));
+	obj.push_back(json_spirit::Pair("blockid",static_cast<int64_t>(client->NextBlockID())));
 	obj.push_back(json_spirit::Pair("type",RemoteMinerMessage::MESSAGE_TYPE_SERVERSENDWORK));
 	obj.push_back(json_spirit::Pair("block",blockstr));
 	obj.push_back(json_spirit::Pair("midstate",midstatestr));

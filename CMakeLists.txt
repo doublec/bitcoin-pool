@@ -4,9 +4,9 @@ PROJECT(bitcoin)
 
 OPTION(BITCOIN_ENABLE_CUDA "Enable CUDA miner" OFF)
 OPTION(BITCOIN_ENABLE_OPENCL "Enable OpenCL miner" OFF)
-OPTION(BITCOIN_ENABLE_REMOTE_SERVER "Enable remote miner server" OFF)
+OPTION(BITCOIN_ENABLE_REMOTE_SERVER "Enable remote miner server" ON)
 OPTION(BITCOIN_BUILD_GUI "Build Server GUI (bitcoin)" OFF)
-OPTION(BITCOIN_BUILD_DAEMON "Build Server Daemon (bitcoind)" OFF)
+OPTION(BITCOIN_BUILD_DAEMON "Build Server Daemon (bitcoind)" ON)
 OPTION(BITCOIN_BUILD_REMOTE_MINER "Build remote miner (bitcoinr)" ON)
 OPTION(BITCOIN_BUILD_RPC_MINER "Build RPC miner (rpcminer)" OFF)
 
