@@ -1010,6 +1010,7 @@ void BitcoinMinerRemoteServer::SendServerStatus()
 		messobj.push_back(json_spirit::Pair("yourkhashbest",static_cast<int64_t>((*i)->GetCalculatedKHashRateFromBestHash())));
 		(*i)->SendMessage(RemoteMinerMessage(messobj));
 	}
+	dHashesPerSec = GetAllClientsCalculatedKHashFromMeta() * 1000.0;
 }
 
 void BitcoinMinerRemoteServer::SendWork(RemoteClientConnection *client)
