@@ -1849,7 +1849,7 @@ void BitcoinMinerRemote()
 			lastserverstatus=time(0);
 			serv.SaveContributedHashes();
 		}
-		Sleep(10);
+		Sleep(20);
 	}	// while fGenerateBitcoins
 
 }
