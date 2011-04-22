@@ -3,6 +3,18 @@ IF(WIN32)
 	ADD_DEFINITIONS(-D__WXMSW__)
 ENDIF(WIN32)
 
+# omit buffer security checkes, increases hashing speed, only available with >= MSVC2005
+IF(MSVC80 OR MSVC90 OR MSVC10)
+	ADD_DEFINITIONS(/GS-)
+ENDIF(MSVC80 OR MSVC90 OR MSVC10)
+
+IF(BITCOIN_4WAYSSE2)
+	ADD_DEFINITIONS(-DFOURWAYSSE2)
+	IF(MSVC)
+		ADD_DEFINITIONS(/arch:SSE2)
+	ENDIF(MSVC)
+ENDIF(BITCOIN_4WAYSSE2)
+
 SET(BITCOIN_REMOTE_MINER_SRC
 	${CMAKE_SOURCE_DIR}/src/remoteminermain.cpp
 	${CMAKE_SOURCE_DIR}/src/cryptopp/cpu.cpp
@@ -10,20 +22,20 @@ SET(BITCOIN_REMOTE_MINER_SRC
 	${CMAKE_SOURCE_DIR}/src/json/json_spirit_reader.cpp
 	${CMAKE_SOURCE_DIR}/src/json/json_spirit_value.cpp
 	${CMAKE_SOURCE_DIR}/src/json/json_spirit_writer.cpp
-	${CMAKE_SOURCE_DIR}/src/remote/base64.c
+	${CMAKE_SOURCE_DIR}/src/minercommon/base64.c
 	${CMAKE_SOURCE_DIR}/src/remote/remoteminerclient.cpp
 	${CMAKE_SOURCE_DIR}/src/remote/remoteminermessage.cpp
 	${CMAKE_SOURCE_DIR}/src/remote/remoteminerthreadcpu.cpp
 )
 
 SET(BITCOIN_REMOTE_MINER_CUDA_SRC
-	${CMAKE_SOURCE_DIR}/src/remote/remoteminerclientgpu.cpp
+	${CMAKE_SOURCE_DIR}/src/remote/remoteminerthreadgpu.cpp
 	${CMAKE_SOURCE_DIR}/src/remote/cuda/bitcoinminercuda.cpp
 	${CMAKE_SOURCE_DIR}/src/remote/cuda/bitcoinminercuda.cu
 )
 
 SET(BITCOIN_REMOTE_MINER_OPENCL_SRC
-	${CMAKE_SOURCE_DIR}/src/remote/remoteminerclientgpu.cpp
+	${CMAKE_SOURCE_DIR}/src/remote/remoteminerthreadgpu.cpp
 	${CMAKE_SOURCE_DIR}/src/remote/opencl/bitcoinmineropencl.cpp
 )
 

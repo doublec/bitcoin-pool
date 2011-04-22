@@ -1,9 +1,27 @@
+/**
+    Copyright (C) 2010  puddinpop
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with this program; if not, write to the Free Software Foundation, Inc.,
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+**/
+
 #ifndef _remoteminer_thread_
 #define _remoteminer_thread_
 
 #define NOMINMAX
 
-#include "remotebitcoinheaders.h"
+#include "../minercommon/minerheaders.h"
 #include "../cryptopp/sha.h"
 #include <limits>
 
@@ -141,6 +159,7 @@ protected:
 
 	void FreeMetaHashPointers()
 	{
+		CRITICAL_BLOCK(m_threaddata.m_cs);
 		for(std::vector<unsigned char *>::iterator i=m_threaddata.m_metahashptrs.begin(); i!=m_threaddata.m_metahashptrs.end(); i++)
 		{
 			delete [] (*i);
@@ -200,6 +219,10 @@ public:
 	~RemoteMinerThreads()
 	{
 		Stop();
+		while(RunningThreadCount()>0)
+		{
+			Sleep(100);
+		}
 		for(std::vector<RemoteMinerThread *>::iterator i=m_minerthreads.begin(); i!=m_minerthreads.end(); i++)
 		{
 			delete (*i);
@@ -212,6 +235,10 @@ public:
 		for(std::vector<RemoteMinerThread *>::iterator i=m_minerthreads.begin(); i!=m_minerthreads.end(); i++)
 		{
 			(*i)->Stop();
+		}
+		while(RunningThreadCount()>0)
+		{
+			Sleep(100);
 		}
 		for(std::vector<RemoteMinerThread *>::iterator i=m_minerthreads.begin(); i!=m_minerthreads.end(); i++)
 		{

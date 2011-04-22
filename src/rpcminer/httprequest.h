@@ -16,47 +16,29 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 **/
 
-#ifndef _bitcoin_miner_opencl_
-#define _bitcoin_miner_opencl_
+#ifndef _http_request_
+#define _http_request_
 
-#ifdef _BITCOIN_MINER_OPENCL_
-
-#include "../gpucommon/gpurunner.h"
-#include "openclshared.h"
 #include <string>
+#include <vector>
 
-class OpenCLRunner:public GPURunner<cl_uint,cl_uint>
+class HTTPRequest
 {
 public:
-	OpenCLRunner();
-	~OpenCLRunner();
+	HTTPRequest(const std::string &url);
+	~HTTPRequest();
 
-	void FindBestConfiguration();
-
-	const cl_uint RunStep();
-
-	opencl_in *GetIn()		{ return m_in; }
+	const bool DoRequest(std::string &result);
 
 private:
-	void DeallocateResources();
-	void AllocateResources(const int numb, const int numt);
 
-	const std::string ReadFileContents(const std::string &filename) const;
+	static size_t WriteData(void *ptr, size_t size, size_t nmemb, void *user_data);
+	static size_t ReadData(void *ptr, size_t size, size_t nmemb, void *user_data);
 
-	opencl_in *m_in;
-	cl_mem m_devin;
-	opencl_out *m_out;
-	cl_mem m_devout;
+	std::string m_url;
 
-	int m_platform;
-	cl_device_id m_device;
-	cl_context m_context;
-	cl_command_queue m_commandqueue;
-	cl_program m_program;
-	cl_kernel m_kernel;
-
+	std::vector<char> m_writebuff;
+	std::vector<char> m_readbuff;
 };
 
-#endif	// _BITCOIN_MINER_OPENCL_
-
-#endif	// _bitcoin_miner_opencl_
+#endif	// _http_request_

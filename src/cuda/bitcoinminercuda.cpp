@@ -22,6 +22,7 @@
 
 #include "bitcoinminercuda.h"
 #include "cudashared.h"
+#include "../cryptopp/sha.h"	// for CryptoPP::ByteReverse
 #include <cutil_inline.h>
 #include <limits>
 
@@ -179,8 +180,8 @@ void CUDARunner::FindBestConfiguration()
 
 const unsigned long CUDARunner::RunStep()
 {
-	unsigned long best=0;
-	unsigned long bestg=~0;
+	unsigned int best=0;
+	unsigned int bestg=~0;
 
 	if(m_in==0 || m_out==0 || m_devin==0 || m_devout==0)
 	{
@@ -202,7 +203,7 @@ const unsigned long CUDARunner::RunStep()
 		}
 	}
 
-	return best;
+	return CryptoPP::ByteReverse(best);
 
 }
 

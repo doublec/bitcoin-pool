@@ -487,6 +487,7 @@ size_t SHA224::HashMultipleBlocks(const word32 *input, size_t length)
 void SHA256::Transform(word32 *state, const word32 *data)
 {
 	word32 W[16];
+
 #if defined(CRYPTOPP_X86_ASM_AVAILABLE) || defined(CRYPTOPP_X64_MASM_AVAILABLE)
 	// this byte reverse is a waste of time, but this function is only called by MDC
 	ByteReverse(W, data, BLOCKSIZE);

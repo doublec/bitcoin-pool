@@ -52,7 +52,8 @@ __global__ void cuda_process(cuda_in *in, cuda_out *out, const unsigned int loop
 		work[0]=in->m_merkle;
 		work[1]=in->m_ntime;
 		work[2]=in->m_nbits;
-		work[3]=byteswap(nonce+it);
+		//work[3]=byteswap(nonce+it);
+		work[3]=nonce+it;
 		work[4]=0x80000000;
 		work[5]=0x00000000;
 		work[6]=0x00000000;

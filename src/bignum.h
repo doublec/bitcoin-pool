@@ -352,7 +352,7 @@ public:
     template<typename Stream>
     void Unserialize(Stream& s, int nType=0, int nVersion=VERSION)
     {
-        vector<unsigned char> vch;
+        std::vector<unsigned char> vch;
         ::Unserialize(s, vch, nType, nVersion);
         setvch(vch);
     }

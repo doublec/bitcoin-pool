@@ -29,7 +29,7 @@
 
 extern const int BITCOINMINERREMOTE_THREADINDEX;
 extern const int BITCOINMINERREMOTE_HASHESPERMETA;
-#define BITCOINMINERREMOTE_SERVERVERSIONSTR "1.2.2"
+#define BITCOINMINERREMOTE_SERVERVERSIONSTR "1.2.3"
 
 void ThreadBitcoinMinerRemote(void* parg);
 void BitcoinMinerRemote();
@@ -73,8 +73,8 @@ public:
 	const std::vector<char>::size_type ReceiveBufferSize() const	{ return m_receivebuffer.size(); }
 	const std::vector<char>::size_type SendBufferSize() const		{ return m_sendbuffer.size(); }
 
-	const bool SocketReceive();
-	const bool SocketSend();
+	const unsigned int SocketReceive();
+	const unsigned int SocketSend();
 
 	const std::string GetAddress(const bool withport=true) const;
 
@@ -124,7 +124,6 @@ public:
 
 	const std::vector<sentwork> &GetSentWork() const		{ return m_sentwork; }
 	std::vector<sentwork> &GetSentWork()					{ return m_sentwork; }
-	const bool GetSentWorkByBlock(const std::vector<unsigned char> &block, sentwork **work);
 	const bool GetSentWorkByID(const int64 id, sentwork **work);
 	const bool GetNewestSentWorkWithMetaHash(sentwork &work) const;
 	void SetWorkVerified(const int64 id, const int64 mhindex, const bool valid);
@@ -183,9 +182,9 @@ private:
 	uint256 *m_hash;
 	unsigned char m_midbuff[256];
 	unsigned char m_blockbuff[256];
-	unsigned char *m_midbuffptr;
-	unsigned char *m_blockbuffptr;
-	unsigned int *m_nonce;
+	volatile unsigned char *m_midbuffptr;
+	volatile unsigned char *m_blockbuffptr;
+	volatile unsigned int *m_nonce;
 	unsigned int m_startnonce;
 	std::vector<unsigned char> m_digest;
 	std::vector<unsigned char> m_metahash;
@@ -226,6 +225,9 @@ public:
 	void AddContributedHashes(const uint160 address, const int64 hashes)	{ m_currenthashescontributed[address]+=hashes; }
 	void ClearCurrentHashesContributed()									{ m_previoushashescontributed=m_currenthashescontributed; m_currenthashescontributed.clear(); }
 
+	const unsigned int GetReceiveRate(const int sec=10);
+	const unsigned int GetSendRate(const int sec=10);
+
 private:
 	void BlockToJson(const CBlock *block, json_spirit::Object &obj);
 	void ReadBanned(const std::string &filename);
@@ -244,6 +246,8 @@ private:
 	std::map<uint160,uint256> m_previoushashescontributed;	// number of hashes each address contributed to the previous block solve
 	std::map<uint160,uint256> m_currenthashescontributed;		// number of hashes each address contributed since last block solve
 	std::set<std::string> m_banned;
+	std::map<time_t,unsigned int> m_sendrate;
+	std::map<time_t,unsigned int> m_receiverate;
 	time_t m_startuptime;
 	int64 m_generatedcount;
 

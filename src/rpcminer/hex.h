@@ -16,22 +16,18 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 **/
 
-#ifndef _remote_bitcoin_headers_
-#define _remote_bitcoin_headers_
+#ifndef _hex_funcs_
+#define _hex_funcs_
 
-#ifdef _WIN32
-#include <winsock2.h>
-#include <windows.h>
-#endif
-#include <boost/thread.hpp>
-#include <boost/date_time/posix_time/posix_time_types.hpp>
-#include <boost/date_time/gregorian/gregorian_types.hpp>
-#include <cassert>
-#include <map>
-#include <vector>
 #include <string>
-#include <openssl/sha.h>
-#include <openssl/ripemd.h>
-#include "../headers.h"
+#include <vector>
 
-#endif	// _remote_bitcoin_headers_
+namespace Hex
+{
+	
+const bool Encode(const std::vector<unsigned char> &data, std::string &encoded);
+const bool Decode(const std::string &encoded, std::vector<unsigned char> &data);
+		
+};
+
+#endif _hex_funcs_

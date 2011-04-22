@@ -16,28 +16,35 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 **/
 
-#ifndef _opencl_shared_
-#define _opencl_shared_
+#ifndef _rpcthread_cpu_
+#define _rpcthread_cpu_
 
-#ifdef _BITCOIN_MINER_OPENCL_
+#include "rpcminerthread.h"
 
-#include <CL/opencl.h>
-
-typedef struct
+class RPCMinerThreadCPU:public RPCMinerThread
 {
-	cl_uint m_AH[8];
-	cl_uint m_merkle;
-	cl_uint m_ntime;
-	cl_uint m_nbits;
-	cl_uint m_nonce;
-}opencl_in;
+public:
+	RPCMinerThreadCPU();
+	~RPCMinerThreadCPU();
 
-typedef struct
-{
-	cl_uint m_bestnonce;
-	//cl_uint m_bestg;
-}opencl_out;
+	virtual const bool Start()
+	{
+		m_threaddata.m_done=false;
+		m_threaddata.m_havework=false;
+		m_threaddata.m_generate=true;
+		m_threaddata.m_nextblock.m_blockid=0;
+		m_threaddata.m_hashcount=0;
+		if(!CreateThread(RPCMinerThreadCPU::Run,&m_threaddata))
+		{
+			m_threaddata.m_done=true;
+			return false;
+		}
+		return true;
+	}
 
-#endif	// _BITCOIN_MINER_OPENCL_
+private:
+	static void Run(void *arg);
 
-#endif	// _opencl_shared_
+};
+
+#endif	// _rpcthread_cpu_

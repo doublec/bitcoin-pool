@@ -22,7 +22,7 @@
 
 #include "bitcoinminercuda.h"
 #include "cudashared.h"
-#include "../remotebitcoinheaders.h"		// util.h for int64
+#include "../../minercommon/minerheaders.h"		// util.h for int64
 #include <cutil_inline.h>
 #include <limits>
 #include <iostream>

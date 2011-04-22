@@ -4,6 +4,9 @@
 
 #include "headers.h"
 #include "cryptopp/sha.h"
+#if defined(_BITCOIN_MINER_CUDA_) || defined(_BITCOIN_MINER_OPENCL_)
+#include "gpucommon/gpucommon.h"
+#endif
 #ifdef _BITCOIN_MINER_CUDA_
 #include "cuda/bitcoinminercuda.h"
 #endif	// _BITCOIN_MINER_CUDA_

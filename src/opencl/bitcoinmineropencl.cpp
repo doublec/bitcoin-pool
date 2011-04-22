@@ -22,7 +22,9 @@
 
 #include "bitcoinmineropencl.h"
 #include "openclshared.h"
+#include "../cryptopp/sha.h"	// for CryptoPP::ByteReverse
 #include <limits>
+#include <sstream>
 
 OpenCLRunner::OpenCLRunner():GPURunner<cl_uint,cl_uint>(TYPE_OPENCL),m_platform(0)
 {
@@ -31,6 +33,9 @@ OpenCLRunner::OpenCLRunner():GPURunner<cl_uint,cl_uint>(TYPE_OPENCL),m_platform(
 	m_out=0;
 	m_devout=0;
 	cl_uint numplatforms=0;
+	size_t tempsize;
+	bool hasmediaops=false;
+	std::string buildoptions("");
 
 	cl_int rval=0;
 
@@ -77,6 +82,38 @@ OpenCLRunner::OpenCLRunner():GPURunner<cl_uint,cl_uint>(TYPE_OPENCL),m_platform(
 				clGetDeviceIDs(pids[m_platform],CL_DEVICE_TYPE_GPU,1,&m_device,NULL);
 			}
 
+
+			clGetDeviceInfo(m_device,CL_DEVICE_EXTENSIONS,0,0,&tempsize);
+			if(tempsize>0)
+			{
+				char *ext=new char[tempsize+1];
+				clGetDeviceInfo(m_device,CL_DEVICE_EXTENSIONS,tempsize,ext,0);
+				ext[tempsize]=0;
+				std::string extstr(ext);
+
+				printf("Available extensions : %s\n",ext);
+
+				if(extstr.find("cl_amd_media_ops")!=std::string::npos)
+				{
+					printf("Defining AMDMEDIAOPS\n");
+					hasmediaops=true;
+					buildoptions+="-D AMDMEDIAOPS";
+				}
+				
+				delete [] ext;
+			}
+
+			if(m_requestedthreads>0 && m_requestedthreads<=65536)
+			{
+				std::ostringstream threadstr;
+				threadstr << m_requestedthreads;
+				if(buildoptions.size()>0)
+				{
+					buildoptions+=" ";
+				}
+				buildoptions+="-D WORKGROUPSIZE="+threadstr.str();
+			}
+
 			m_context=clCreateContext(0,1,&m_device,NULL,NULL,&rval);
 			printf("Create context rval=%d\n",rval);
 			m_commandqueue=clCreateCommandQueue(m_context,m_device,0,&rval);
@@ -88,19 +125,24 @@ OpenCLRunner::OpenCLRunner():GPURunner<cl_uint,cl_uint>(TYPE_OPENCL),m_platform(
 			src[srcfile.size()]=0;
 			printf("Creating program with source\n");
 			m_program=clCreateProgramWithSource(m_context,1,(const char **)&src,0,&rval);
-			printf("Building program\n");
-			rval=clBuildProgram(m_program,1,&m_device,0,0,0);
+			printf("Building program with options %s\n",buildoptions.c_str());
+			rval=clBuildProgram(m_program,1,&m_device,buildoptions.c_str(),0,0);
 			printf("Build program rval=%d\n",rval);
 
 			char *tempbuff;
 			size_t tempsize=0;
+			size_t rsize=0;
 
 			clGetProgramBuildInfo(m_program,m_device,CL_PROGRAM_BUILD_STATUS,0,0,&tempsize);
 			if(tempsize>0)
 			{
 				tempbuff=new char[tempsize+1];
-				clGetProgramBuildInfo(m_program,m_device,CL_PROGRAM_BUILD_STATUS,tempsize,tempbuff,0);
+				clGetProgramBuildInfo(m_program,m_device,CL_PROGRAM_BUILD_STATUS,tempsize,tempbuff,&rsize);
 				tempbuff[tempsize]=0;
+				if(rsize>0 && rsize<=tempsize)
+				{
+					tempbuff[rsize]=0;
+				}
 				printf("build STATUS:%s\n",tempbuff);
 				delete [] tempbuff;
 			}
@@ -109,14 +151,24 @@ OpenCLRunner::OpenCLRunner():GPURunner<cl_uint,cl_uint>(TYPE_OPENCL),m_platform(
 			if(tempsize>0)
 			{
 				tempbuff=new char[tempsize+1];
-				clGetProgramBuildInfo(m_program,m_device,CL_PROGRAM_BUILD_LOG,tempsize,tempbuff,0);
+				clGetProgramBuildInfo(m_program,m_device,CL_PROGRAM_BUILD_LOG,tempsize,tempbuff,&rsize);
 				tempbuff[tempsize]=0;
+				if(rsize>0 && rsize<=tempsize)
+				{
+					tempbuff[rsize]=0;
+				}
 				printf("build LOG:%s\n",tempbuff);
 				delete [] tempbuff;
 			}
 
 			m_kernel=clCreateKernel(m_program,"opencl_process",&rval);
 			printf("Create kernel rval=%d\n",rval);
+
+			if(rval!=CL_SUCCESS)
+			{
+				printf("Error creating kernel\n");
+				m_deviceindex=-1;
+			}
 
 			delete [] src;
 			delete [] devices;
@@ -151,9 +203,11 @@ void OpenCLRunner::AllocateResources(const int numb, const int numt)
 
 	m_in=(opencl_in *)malloc(sizeof(opencl_in));
 	m_out=(opencl_out *)malloc(numb*numt*sizeof(opencl_out));
+	//m_out=(opencl_out *)malloc(sizeof(opencl_out));
 
 	m_devin=clCreateBuffer(m_context,CL_MEM_READ_ONLY,sizeof(opencl_in),0,0);
 	m_devout=clCreateBuffer(m_context,CL_MEM_READ_WRITE,numb*numt*sizeof(opencl_out),0,0);
+	//m_devout=clCreateBuffer(m_context,CL_MEM_READ_WRITE,sizeof(opencl_out),0,0);
 
 	printf("Done allocating OpenCL resources for (%d,%d)\n",numb,numt);
 }
@@ -237,6 +291,7 @@ void OpenCLRunner::FindBestConfiguration()
 				err=clEnqueueNDRangeKernel(m_commandqueue,m_kernel,1,0,&dim,&cnumt,0,0,0);
 
 				clEnqueueReadBuffer(m_commandqueue,m_devout,CL_TRUE,0,numb*numt*sizeof(opencl_out),m_out,0,0,0);
+				//clEnqueueReadBuffer(m_commandqueue,m_devout,CL_TRUE,0,sizeof(opencl_out),m_out,0,0,0);
 			}
 
 			int64 et=GetTimeMillis();
@@ -261,15 +316,19 @@ void OpenCLRunner::FindBestConfiguration()
 
 const cl_uint OpenCLRunner::RunStep()
 {
-	cl_uint best=0;
-	cl_uint bestg=~0;
+	//cl_uint best=0;
+	//cl_uint bestg=~0;
 
+	/*
 	if(m_in==0 || m_out==0 || m_devin==0 || m_devout==0)
 	{
 		AllocateResources(m_numb,m_numt);
 	}
+	*/
 
 	clEnqueueWriteBuffer(m_commandqueue,m_devin,CL_TRUE,0,sizeof(opencl_in),m_in,0,0,0);
+	//m_out[0].m_bestnonce=0;
+	//clEnqueueWriteBuffer(m_commandqueue,m_devout,CL_TRUE,0,sizeof(opencl_out),m_out,0,0,0);
 	
 	const cl_uint loops=GetStepIterations();
 	const cl_uint bitshift=GetStepBitShift()-1;
@@ -283,17 +342,25 @@ const cl_uint OpenCLRunner::RunStep()
 	clEnqueueNDRangeKernel(m_commandqueue,m_kernel,1,0,&dim,&cnumt,0,0,0);
 
 	clEnqueueReadBuffer(m_commandqueue,m_devout,CL_TRUE,0,m_numb*m_numt*sizeof(opencl_out),m_out,0,0,0);
+	//clEnqueueReadBuffer(m_commandqueue,m_devout,CL_TRUE,0,sizeof(opencl_out),m_out,0,0,0);
 
+	
+	// very unlikely that we will find more than 1 hash with H=0
+	// so we'll just return the first one and not even worry about G
 	for(int i=0; i<m_numb*m_numt; i++)
 	{
-		if(m_out[i].m_bestnonce!=0 && m_out[i].m_bestg<bestg)
+		if(m_out[i].m_bestnonce!=0)// && m_out[i].m_bestg<bestg)
 		{
-			best=m_out[i].m_bestnonce;
-			bestg=m_out[i].m_bestg;
+			return CryptoPP::ByteReverse(m_out[i].m_bestnonce);
+			//best=m_out[i].m_bestnonce;
+			//bestg=m_out[i].m_bestg;
 		}
 	}
+	
+	//return CryptoPP::ByteReverse(m_out[0].m_bestnonce);
 
-	return best;
+	//return CryptoPP::ByteReverse(best);
+	return 0;
 }
 
 const std::string OpenCLRunner::ReadFileContents(const std::string &filename) const

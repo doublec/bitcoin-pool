@@ -120,7 +120,7 @@ void RemoteMinerThreadGPU::Run(void *arg)
 					td->m_foundhashes.push_back(foundhash(currentblockid,gpu.GetOut()[i].m_bestnonce));
 				}
 
-				if(gpu.GetOut()[i].m_bestnonce!=0 && hash!=0 && hash<besthash && gpu.GetOut()[i].m_bestnonce<metahashstartnonce+metahashsize)
+				if(gpu.GetOut()[i].m_bestnonce!=0 && hash!=0 && hash<besthash && gpu.GetOut()[i].m_bestnonce<metahashstartnonce+metahashsize && gpu.GetOut()[i].m_bestnonce>=metahashstartnonce)
 				{
 					besthash=hash;
 					besthashnonce=gpu.GetOut()[i].m_bestnonce;

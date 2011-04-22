@@ -1,7 +1,6 @@
 #ifndef _timestats_
 #define _timestats_
 
-#include "remotebitcoinheaders.h"
 #include <map>
 #include <string>
 #include <fstream>
