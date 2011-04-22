@@ -723,9 +723,13 @@ RemoteClientConnection *BitcoinMinerRemoteServer::GetOldestNonVerifiedMetaHashCl
 {
 	SCOPEDTIME("BitcoinMinerRemoteServer::GetOldestNonVerifiedMetaHashClient");
 	RemoteClientConnection *client=0;
-	time_t oldest=time(0);
+        time_t now = time(0);
+	time_t oldest=now;
 	for(std::vector<RemoteClientConnection *>::const_iterator i=m_clients.begin(); i!=m_clients.end(); i++)
 	{
+		if(difftime(now, (*i)->GetLastVerifiedMetaHash()) < 30)
+			continue;
+
 		if((*i)->GetLastVerifiedMetaHash()<=oldest)
 		{
 			client=(*i);
@@ -1779,7 +1783,10 @@ void BitcoinMinerRemote()
 		// check metahash of a client every 10 seconds
 		if(serv.Clients().size()>0 && difftime(time(0),lastverified)>=10)
 		{
-			RemoteClientConnection *client=serv.GetOldestNonVerifiedMetaHashClient();
+//			RemoteClientConnection *client=serv.GetOldestNonVerifiedMetaHashClient();
+			RemoteClientConnection *client= metahashverifier.GetClient() != 0 && !metahashverifier.Done() ? 
+								metahashverifier.GetClient() : serv.GetOldestNonVerifiedMetaHashClient();
+
 
 			if(metahashverifier.GetClient()!=client || (client!=0 && metahashverifier.GetClient()==0))
 			{
@@ -1825,7 +1832,7 @@ void BitcoinMinerRemote()
 			lastserverstatus=time(0);
 			serv.SaveContributedHashes();
 		}
-
+		Sleep(10);
 	}	// while fGenerateBitcoins
 
 }
