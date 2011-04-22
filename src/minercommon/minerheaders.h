@@ -51,6 +51,7 @@
 #include <vector>
 #include <string>
 #include <cstdio>
+#include <climits>
 #include <openssl/sha.h>
 #include <openssl/ripemd.h>
 #include "base64.h"
